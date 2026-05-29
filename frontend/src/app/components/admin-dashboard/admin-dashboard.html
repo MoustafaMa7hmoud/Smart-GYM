@@ -1,0 +1,316 @@
+<app-navbar></app-navbar>
+
+<div class="dashboard-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="admin-brand">
+      <div class="brand-icon"><i class="fas fa-shield-alt"></i></div>
+      <div>
+        <div class="brand-title">Admin Panel</div>
+        <div class="brand-sub">{{ getFirstName(auth.currentUser?.fullName) }}</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button *ngFor="let tab of tabs" [class.active]="activeTab === tab.id" (click)="setTab(tab.id)">
+        <i class="fas" [class]="tab.icon"></i> {{ tab.label }}
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="dash-main">
+    <div class="success-toast" *ngIf="successMsg"><i class="fas fa-check-circle"></i> {{ successMsg }}</div>
+
+    <!-- ── OVERVIEW ── -->
+    <div *ngIf="activeTab === 'overview'">
+      <div class="page-header">
+        <div><h2>Dashboard <span class="accent">Overview</span></h2><p>Real-time gym statistics</p></div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card blue">
+          <div class="stat-icon"><i class="fas fa-users"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ adminStats.totalUsers }}</div>
+            <div class="stat-label">Total Members</div>
+          </div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon"><i class="fas fa-user-tie"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ adminStats.totalTrainers }}</div>
+            <div class="stat-label">Trainers</div>
+          </div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-icon"><i class="fas fa-star"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ adminStats.totalActiveSubscriptions }}</div>
+            <div class="stat-label">Active Subscriptions</div>
+          </div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ adminStats.todayAttendanceCount }}</div>
+            <div class="stat-label">Today's Visitors</div>
+          </div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ totalRevenue }} EGP</div>
+            <div class="stat-label">Total Revenue</div>
+          </div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-icon"><i class="fas fa-cog"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ machines.length }}</div>
+            <div class="stat-label">Equipment</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Today's Attendance -->
+      <div class="section-card">
+        <h4 class="card-title"><i class="fas fa-calendar-day accent"></i> Today's Check-ins</h4>
+        <div class="attendance-list">
+          <div class="att-row" *ngFor="let a of attendance">
+            <div class="att-user"><i class="fas fa-user-circle"></i> {{ a.user }}</div>
+            <div class="att-time">{{ a.checkIn | date:'shortTime' }} → {{ a.checkOut | date:'shortTime' }}</div>
+            <div class="att-dur">{{ formatDuration(a.duration) }}</div>
+            <span class="method-badge">{{ a.method }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick machines status -->
+      <div class="section-card">
+        <h4 class="card-title"><i class="fas fa-cog accent"></i> Equipment Status</h4>
+        <div class="machine-status-list">
+          <div class="mstatus-row" *ngFor="let m of machines">
+            <span class="m-name">{{ m.name }}</span>
+            <span class="m-location">{{ m.location }}</span>
+            <span class="status-dot" [style.background]="getStatusColor(m.status)"></span>
+            <span class="m-status" [style.color]="getStatusColor(m.status)">{{ m.status }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── USERS ── -->
+    <div *ngIf="activeTab === 'users' && !selectedUser">
+      <div class="page-header">
+        <div><h2>Manage <span class="accent">Members</span></h2><p>{{ users.length }} total users</p></div>
+      </div>
+      <div class="search-bar">
+        <i class="fas fa-search"></i>
+        <input type="text" [(ngModel)]="userSearch" placeholder="Search by name or email..." />
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th><th>Joined</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let u of filteredUsers">
+              <td><div class="user-cell"><div class="mini-avatar">{{ u.fullName[0] }}</div>{{ u.fullName }}</div></td>
+              <td class="email-td">{{ u.email }}</td>
+              <td><span class="role-badge" [style.color]="getRoleColor(u.role)" [style.borderColor]="getRoleColor(u.role)">{{ u.role }}</span></td>
+              <td>{{ u.phone || '—' }}</td>
+              <td>{{ formatDate(u.joinDate) }}</td>
+              <td>
+                <button class="icon-btn view" (click)="openUser(u)" title="View"><i class="fas fa-eye"></i></button>
+                <button class="icon-btn delete" (click)="deleteUser(u._id)" title="Delete"><i class="fas fa-trash"></i></button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- User Detail -->
+    <div *ngIf="activeTab === 'users' && selectedUser">
+      <button class="back-btn" (click)="selectedUser=null"><i class="fas fa-arrow-left"></i> Back to Members</button>
+      <div class="detail-card">
+        <div class="detail-header">
+          <div class="detail-avatar">{{ selectedUser.fullName[0] }}</div>
+          <div>
+            <h3>{{ selectedUser.fullName }}</h3>
+            <p class="detail-email">{{ selectedUser.email }}</p>
+            <span class="role-badge" [style.color]="getRoleColor(selectedUser.role)">{{ selectedUser.role }}</span>
+          </div>
+          <button class="btn btn-sm" *ngIf="!editUserMode" (click)="editUserMode=true"><i class="fas fa-edit"></i> Edit</button>
+        </div>
+        <div class="fields-grid" *ngIf="!editUserMode">
+          <div class="field-item"><label>Phone</label><span>{{ selectedUser.phone || '—' }}</span></div>
+          <div class="field-item"><label>Gender</label><span class="capitalize">{{ selectedUser.gender || '—' }}</span></div>
+          <div class="field-item"><label>Goal</label><span>{{ selectedUser.goal || '—' }}</span></div>
+          <div class="field-item"><label>Level</label><span class="capitalize">{{ selectedUser.level || '—' }}</span></div>
+          <div class="field-item"><label>Weight</label><span>{{ selectedUser.weight || '—' }} kg</span></div>
+          <div class="field-item"><label>Joined</label><span>{{ formatDate(selectedUser.joinDate) }}</span></div>
+        </div>
+        <div class="edit-grid" *ngIf="editUserMode">
+          <div class="fg"><label>Full Name</label><input [(ngModel)]="editUserData.fullName" /></div>
+          <div class="fg"><label>Email</label><input [(ngModel)]="editUserData.email" /></div>
+          <div class="fg"><label>Phone</label><input [(ngModel)]="editUserData.phone" /></div>
+          <div class="fg">
+            <label>Role</label>
+            <select [(ngModel)]="editUserData.role">
+              <option value="user">user</option>
+              <option value="trainer">trainer</option>
+              <option value="admin">admin</option>
+            </select>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-sm" (click)="saveUser()"><i class="fas fa-save"></i> Save</button>
+            <button class="btn btn-sm btn-outline" (click)="editUserMode=false">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TRAINERS ── -->
+    <div *ngIf="activeTab === 'trainers'">
+      <div class="page-header">
+        <div><h2>Manage <span class="accent">Trainers</span></h2><p>{{ trainers.length }} registered trainers</p></div>
+      </div>
+      <div class="trainers-grid">
+        <div class="trainer-card" *ngFor="let t of trainers">
+          <div class="trainer-top">
+            <div class="tr-avatar">{{ t.fullName.split(' ')[1]?.[0] || t.fullName[0] }}</div>
+            <div>
+              <h4>{{ t.fullName }}</h4>
+              <p class="tr-email">{{ t.email }}</p>
+            </div>
+            <span class="approved-badge" [class.yes]="t.isApproved" [class.no]="!t.isApproved">
+              {{ t.isApproved ? 'Approved' : 'Pending' }}
+            </span>
+          </div>
+          <div class="spec-chips">
+            <span *ngFor="let s of t.specializations.slice(0,2)" class="spec-chip">{{ s }}</span>
+          </div>
+          <div class="tr-stats">
+            <span><i class="fas fa-star accent"></i> {{ t.rating }}/5</span>
+            <span><i class="fas fa-users"></i> {{ t.totalClients }} clients</span>
+            <span><i class="fas fa-briefcase"></i> {{ t.experience }} yrs</span>
+            <span class="tr-price">{{ t.sessionPrice }} EGP/session</span>
+          </div>
+          <button *ngIf="!t.isApproved" class="btn btn-sm" (click)="approveTrainer(t._id)"><i class="fas fa-check"></i> Approve</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MACHINES ── -->
+    <div *ngIf="activeTab === 'machines'">
+      <div class="page-header">
+        <div><h2>Manage <span class="accent">Equipment</span></h2><p>{{ machines.length }} machines</p></div>
+        <button class="btn btn-sm" (click)="showAddMachine=!showAddMachine"><i class="fas fa-plus"></i> Add Machine</button>
+      </div>
+
+      <div class="add-form" *ngIf="showAddMachine">
+        <h4>Add New Machine</h4>
+        <div class="edit-grid">
+          <div class="fg"><label>Name *</label><input [(ngModel)]="newMachine.name" placeholder="Smith Machine" /></div>
+          <div class="fg"><label>Brand</label><input [(ngModel)]="newMachine.brand" placeholder="LifeFitness" /></div>
+          <div class="fg"><label>Location</label><input [(ngModel)]="newMachine.location" placeholder="Floor 1 - Zone A" /></div>
+          <div class="fg"><label>Muscle Groups (comma-separated)</label><input [(ngModel)]="newMachine.muscleGroups" placeholder="chest, shoulders" /></div>
+          <div class="fg">
+            <label>Category</label>
+            <select [(ngModel)]="newMachine.category">
+              <option value="strength">Strength</option>
+              <option value="cardio">Cardio</option>
+              <option value="functional">Functional</option>
+              <option value="stretching">Stretching</option>
+            </select>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-sm" (click)="addMachine()"><i class="fas fa-plus"></i> Add</button>
+          <button class="btn btn-sm btn-outline" (click)="showAddMachine=false">Cancel</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Category</th><th>Brand</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let m of machines">
+              <td><strong style="color:#fff">{{ m.name }}</strong></td>
+              <td>{{ m.category }}</td>
+              <td>{{ m.brand || '—' }}</td>
+              <td>{{ m.location }}</td>
+              <td>
+                <span class="status-pill" [style.background]="getStatusColor(m.status) + '22'" [style.color]="getStatusColor(m.status)">
+                  <span class="status-dot" [style.background]="getStatusColor(m.status)"></span>
+                  {{ m.status }}
+                </span>
+              </td>
+              <td>
+                <button class="icon-btn view" (click)="toggleMachineStatus(m)" title="Toggle Status"><i class="fas fa-sync"></i></button>
+                <button class="icon-btn delete" (click)="deleteMachine(m._id)" title="Delete"><i class="fas fa-trash"></i></button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── SUBSCRIPTIONS ── -->
+    <div *ngIf="activeTab === 'subscriptions'">
+      <div class="page-header">
+        <div><h2>All <span class="accent">Subscriptions</span></h2><p>Revenue & plan overview</p></div>
+      </div>
+      <div class="stats-row-mini">
+        <div class="mini-stat"><span class="accent">{{ adminStats.totalActiveSubscriptions }}</span><p>Active</p></div>
+        <div class="mini-stat"><span style="color:#34d399">{{ totalRevenue }} EGP</span><p>Total Revenue</p></div>
+      </div>
+      <div class="section-card" style="margin-top:1.5rem">
+        <h4 class="card-title">Sample Records</h4>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>User</th><th>Plan</th><th>Price</th><th>Status</th><th>Expires</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let u of users.slice(0,5)">
+                <td>{{ u.fullName }}</td>
+                <td>Standard</td>
+                <td>399 EGP</td>
+                <td><span class="status-badge success">active</span></td>
+                <td>2025-07-01</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ATTENDANCE ── -->
+    <div *ngIf="activeTab === 'attendance'">
+      <div class="page-header">
+        <div><h2>All <span class="accent">Attendance</span></h2><p>Today: {{ adminStats.todayAttendanceCount }} visitors</p></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Member</th><th>Check In</th><th>Check Out</th><th>Duration</th><th>Method</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let a of attendance">
+              <td><div class="user-cell"><div class="mini-avatar">{{ a.user[0] }}</div>{{ a.user }}</div></td>
+              <td>{{ a.checkIn | date:'shortTime' }}</td>
+              <td>{{ a.checkOut | date:'shortTime' }}</td>
+              <td>{{ formatDuration(a.duration) }}</td>
+              <td><span class="method-badge">{{ a.method }}</span></td>
+            </tr>
+            <tr *ngFor="let a of attendance.slice(0,5)">
+              <td><div class="user-cell"><div class="mini-avatar">M</div>Member</div></td>
+              <td>{{ a.checkIn | date:'shortTime' }}</td>
+              <td>{{ a.checkOut ? (a.checkOut | date:'shortTime') : '—' }}</td>
+              <td>{{ formatDuration(a.duration) }}</td>
+              <td><span class="method-badge">{{ a.method }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+<app-footer></app-footer>

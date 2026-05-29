@@ -1,0 +1,484 @@
+<app-navbar></app-navbar>
+
+<div class="dashboard-layout">
+  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="user-card">
+      <div class="avatar">{{ getInitials(user?.fullName || 'U') }}</div>
+      <div class="user-info">
+        <h4>{{ user?.fullName || 'Member' }}</h4>
+        <span class="role-badge">Member</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button *ngFor="let tab of tabs"
+        [class.active]="activeTab === tab.id"
+        (click)="setTab(tab.id)">
+        <i class="fas" [class]="tab.icon"></i> {{ tab.label }}
+      </button>
+    </nav>
+  </aside>
+
+  <!-- ── Main ─────────────────────────────────────────────────────────── -->
+  <main class="dash-main">
+    <div class="success-toast" *ngIf="successMsg"><i class="fas fa-check-circle"></i> {{ successMsg }}</div>
+    <div class="error-toast"   *ngIf="errorMsg"><i class="fas fa-exclamation-circle"></i> {{ errorMsg }}</div>
+
+    <!-- ══ OVERVIEW ════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab === 'overview'">
+      <div class="page-header">
+        <div>
+          <h2>Welcome back, <span class="accent">{{ user?.fullName?.split(' ')[0] }}</span> 👋</h2>
+          <p>Your fitness snapshot</p>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon orange"><i class="fas fa-fire"></i></div>
+          <div><div class="stat-val">{{ attendance.length }}</div><div class="stat-label">Sessions</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green"><i class="fas fa-weight"></i></div>
+          <div>
+            <div class="stat-val">{{ latestMeasurement?.weight || user?.weight || '—' }}<small> kg</small></div>
+            <div class="stat-label">Weight</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon blue"><i class="fas fa-heartbeat"></i></div>
+          <div>
+            <div class="stat-val">{{ latestMeasurement?.bmi || '—' }}</div>
+            <div class="stat-label">BMI</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow"><i class="fas fa-calendar-check"></i></div>
+          <div>
+            <div class="stat-val">{{ daysUntilExpiry() }}<small>d</small></div>
+            <div class="stat-label">Sub. Left</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Check-in card -->
+      <div class="quick-card" [class.checked-in]="isCheckedIn">
+        <div class="qcard-body">
+          <div class="qcard-icon"><i class="fas fa-map-marker-alt"></i></div>
+          <div>
+            <h4>{{ isCheckedIn ? 'You are checked in!' : 'Ready to train?' }}</h4>
+            <p *ngIf="isCheckedIn && checkInTime">Since {{ checkInTime | date:'shortTime' }}</p>
+            <p *ngIf="!isCheckedIn">Tap to record your gym entry</p>
+          </div>
+        </div>
+        <button class="btn" *ngIf="!isCheckedIn" (click)="doCheckIn()">
+          <i class="fas fa-sign-in-alt"></i> Check In
+        </button>
+        <button class="btn btn-danger" *ngIf="isCheckedIn" (click)="doCheckOut()">
+          <i class="fas fa-sign-out-alt"></i> Check Out
+        </button>
+      </div>
+
+      <!-- Subscription summary -->
+      <div class="sub-summary" *ngIf="subscription">
+        <div class="sub-plan">
+          <span class="plan-name">{{ subscription.plan | titlecase }} Plan</span>
+          <span class="plan-status" [class]="subscription.status">{{ subscription.status }}</span>
+        </div>
+        <div class="sub-dates">Expires: {{ formatDate(subscription.endDate) }}</div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill"
+            [style.width]="(daysUntilExpiry() / ((subscription.durationMonths || 1) * 30) * 100) + '%'">
+          </div>
+        </div>
+      </div>
+
+      <div class="no-sub-card" *ngIf="!subscription && !dataLoading">
+        <i class="fas fa-star"></i>
+        <p>No active subscription</p>
+        <a routerLink="/subscribe" class="btn btn-sm">Subscribe Now</a>
+      </div>
+    </div>
+
+    <!-- ══ WORKOUT PLANS ════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab === 'workouts'">
+      <div class="page-header">
+        <div><h2>Workout <span class="accent">Plans</span></h2><p>Your training programs</p></div>
+      </div>
+
+      <div class="loading-state" *ngIf="workoutPlans.length === 0 && dataLoading">
+        <i class="fas fa-spinner fa-spin"></i> Loading...
+      </div>
+
+      <div class="empty-state" *ngIf="workoutPlans.length === 0 && !dataLoading">
+        <i class="fas fa-dumbbell"></i>
+        <p>No workout plans yet.</p>
+      </div>
+
+      <div class="plans-grid" *ngIf="workoutPlans.length > 0">
+        <div class="plan-card" *ngFor="let plan of workoutPlans">
+          <div class="plan-level" [style.color]="getLevelColor(plan.level)">{{ plan.level }}</div>
+          <h3>{{ plan.title || plan.name }}</h3>
+          <p>{{ plan.description }}</p>
+          <div class="plan-footer">
+            <span><i class="fas fa-calendar-week"></i> {{ plan.durationWeeks }}w</span>
+            <span *ngIf="plan.days?.length"><i class="fas fa-dumbbell"></i> {{ plan.days?.length }} days</span>
+            <span class="tag-goal">{{ getGoalLabel(plan.goal) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ EXERCISES ════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab === 'exercises'">
+      <div class="page-header">
+        <div><h2>Exercise <span class="accent">Library</span></h2></div>
+      </div>
+
+      <!-- Muscle group chips -->
+      <div *ngIf="!selectedMuscle && !selectedExercise">
+        <div class="muscle-grid">
+          <div class="muscle-chip" *ngFor="let m of muscleGroups" (click)="selectMuscle(m.id)">
+            <span>{{ m.icon }}</span> {{ m.label }}
+            <span class="chip-count">{{ (exercises | filterEx:m.id).length }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Exercise list -->
+      <div *ngIf="selectedMuscle && !selectedExercise">
+        <button class="back-btn" (click)="selectedMuscle=null">
+          <i class="fas fa-arrow-left"></i> Muscle Groups
+        </button>
+        <div class="ex-list">
+          <div class="ex-row" *ngFor="let ex of filteredExercises" (click)="openExercise(ex)">
+            <div class="ex-img" *ngIf="getExerciseImageUrl(ex)">
+              <img [src]="getExerciseImageUrl(ex)" alt="" />
+            </div>
+            <div class="ex-row-body">
+              <h4>{{ ex.name }}</h4>
+              <span class="level-pill"
+                [style.background]="getLevelColor(ex.level)+'22'"
+                [style.color]="getLevelColor(ex.level)">{{ ex.level }}</span>
+            </div>
+            <i class="fas fa-chevron-right" style="color:#333"></i>
+          </div>
+        </div>
+        <div class="empty-state" *ngIf="filteredExercises.length === 0">
+          <i class="fas fa-search"></i><p>No exercises found.</p>
+        </div>
+      </div>
+
+      <!-- Exercise detail -->
+      <div *ngIf="selectedExercise">
+        <button class="back-btn" (click)="selectedExercise=null">
+          <i class="fas fa-arrow-left"></i> Back
+        </button>
+        <div class="ex-detail-card">
+          <h3>{{ selectedExercise.name }}</h3>
+          <div class="tag-row">
+            <span class="tag-chip">{{ selectedExercise.muscle }}</span>
+            <span class="level-pill"
+              [style.background]="getLevelColor(selectedExercise.level)+'22'"
+              [style.color]="getLevelColor(selectedExercise.level)">{{ selectedExercise.level }}</span>
+            <span class="tag-chip">{{ selectedExercise.category }}</span>
+          </div>
+          <img *ngIf="getExerciseImageUrl(selectedExercise)"
+            [src]="getExerciseImageUrl(selectedExercise)" class="ex-detail-img" />
+          <p>{{ selectedExercise.description }}</p>
+          <div *ngIf="selectedExercise.tips?.length">
+            <h5>Tips:</h5>
+            <ul class="tips-list">
+              <li *ngFor="let t of selectedExercise.tips">{{ t }}</li>
+            </ul>
+          </div>
+          <div *ngIf="selectedExercise.mistakes?.length">
+            <h5 style="color:#fb923c;margin-top:1rem">Common Mistakes:</h5>
+            <ul class="tips-list">
+              <li *ngFor="let m of selectedExercise.mistakes">{{ m }}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PROGRESS ════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab === 'progress'">
+      <div class="page-header">
+        <div><h2>My <span class="accent">Progress</span></h2></div>
+      </div>
+
+      <!-- Sub-tabs -->
+      <div class="sub-tabs">
+        <button [class.active]="progressTab === 'body'" (click)="progressTab='body'">
+          <i class="fas fa-weight"></i> Body Measurements
+        </button>
+        <button [class.active]="progressTab === 'workout'" (click)="progressTab='workout'">
+          <i class="fas fa-dumbbell"></i> Workout Logs
+        </button>
+      </div>
+
+      <!-- Body Measurements -->
+      <div *ngIf="progressTab === 'body'">
+        <div class="section-actions">
+          <button class="btn btn-sm" (click)="showMeasurementForm=!showMeasurementForm">
+            <i class="fas fa-plus"></i> Add Measurement
+          </button>
+        </div>
+
+        <div class="measurement-form" *ngIf="showMeasurementForm">
+          <h4>New Body Measurement</h4>
+          <div class="form-row">
+            <div class="fg"><label>Weight (kg)</label><input type="number" [(ngModel)]="newWeight" placeholder="80" /></div>
+            <div class="fg"><label>Height (cm)</label><input type="number" [(ngModel)]="newHeight" placeholder="178" /></div>
+            <div class="fg"><label>Body Fat %</label><input type="number" [(ngModel)]="newBodyFat" placeholder="18" /></div>
+            <div class="fg"><label>Chest (cm)</label><input type="number" [(ngModel)]="newChest" placeholder="100" /></div>
+            <div class="fg"><label>Waist (cm)</label><input type="number" [(ngModel)]="newWaist" placeholder="80" /></div>
+            <div class="fg"><label>Hips (cm)</label><input type="number" [(ngModel)]="newHips" placeholder="95" /></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-sm" (click)="addMeasurement()"><i class="fas fa-save"></i> Save</button>
+            <button class="btn btn-sm btn-outline" (click)="showMeasurementForm=false">Cancel</button>
+          </div>
+        </div>
+
+        <div class="trend-cards" *ngIf="latestMeasurement">
+          <div class="trend-card">
+            <div class="trend-label">Weight</div>
+            <div class="trend-val">{{ latestMeasurement.weight }} kg</div>
+            <div class="trend-change" [class.neg]="weightTrend < 0" [class.pos]="weightTrend > 0">
+              {{ weightTrend > 0 ? '+' : '' }}{{ weightTrend }} kg
+            </div>
+          </div>
+          <div class="trend-card" *ngIf="latestMeasurement.bmi">
+            <div class="trend-label">BMI</div>
+            <div class="trend-val">{{ latestMeasurement.bmi }}</div>
+            <div class="trend-cat">{{ latestMeasurement.bmiCategory }}</div>
+          </div>
+          <div class="trend-card" *ngIf="latestMeasurement.bodyFatPercentage">
+            <div class="trend-label">Body Fat</div>
+            <div class="trend-val">{{ latestMeasurement.bodyFatPercentage }}%</div>
+          </div>
+        </div>
+
+        <div class="table-wrap" *ngIf="measurements.length > 0" style="margin-top:1.5rem">
+          <table>
+            <thead><tr><th>Date</th><th>Weight</th><th>Height</th><th>BMI</th><th>Body Fat</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let m of measurements">
+                <td>{{ formatDate(m.date) }}</td>
+                <td>{{ m.weight ? m.weight + ' kg' : '—' }}</td>
+                <td>{{ m.height ? m.height + ' cm' : '—' }}</td>
+                <td>{{ m.bmi || '—' }}</td>
+                <td>{{ m.bodyFatPercentage ? m.bodyFatPercentage + '%' : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="empty-state" *ngIf="measurements.length === 0">
+          <i class="fas fa-chart-line"></i><p>No measurements yet. Add your first one!</p>
+        </div>
+      </div>
+
+      <!-- Workout Logs -->
+      <div *ngIf="progressTab === 'workout'">
+        <div class="section-actions">
+          <button class="btn btn-sm" (click)="showWorkoutForm=!showWorkoutForm">
+            <i class="fas fa-plus"></i> Log Workout
+          </button>
+        </div>
+
+        <div class="measurement-form" *ngIf="showWorkoutForm">
+          <h4>Log Workout Sets</h4>
+          <div class="fg" style="margin-bottom:1rem">
+            <label>Exercise</label>
+            <select [(ngModel)]="selectedExerciseForLog">
+              <option value="" disabled>Select exercise</option>
+              <option *ngFor="let ex of exercises" [value]="ex._id">{{ ex.name }}</option>
+            </select>
+          </div>
+          <div class="sets-list">
+            <div class="set-row" *ngFor="let s of workoutSets; let i = index">
+              <span class="set-num">Set {{ s.setNumber }}</span>
+              <div class="fg-inline">
+                <label>Reps</label>
+                <input type="number" [(ngModel)]="s.reps" min="1" />
+              </div>
+              <div class="fg-inline">
+                <label>Weight (kg)</label>
+                <input type="number" [(ngModel)]="s.weight" min="0" />
+              </div>
+              <button class="icon-remove" (click)="removeWorkoutSet(i)"
+                *ngIf="workoutSets.length > 1">✕</button>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-sm btn-outline" (click)="addWorkoutSet()">+ Add Set</button>
+            <button class="btn btn-sm" (click)="logWorkoutProgress()"><i class="fas fa-save"></i> Log</button>
+            <button class="btn btn-sm btn-outline" (click)="showWorkoutForm=false">Cancel</button>
+          </div>
+        </div>
+
+        <div class="table-wrap" *ngIf="workoutLogs.length > 0" style="margin-top:1.5rem">
+          <table>
+            <thead><tr><th>Exercise</th><th>Sets</th><th>Volume</th><th>Date</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let log of workoutLogs">
+                <td><strong style="color:#fff">{{ log.exercise?.name || '—' }}</strong></td>
+                <td>{{ log.sets?.length || 0 }} sets</td>
+                <td>{{ log.totalVolume || 0 }} kg</td>
+                <td>{{ formatDate(log.date) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="empty-state" *ngIf="workoutLogs.length === 0">
+          <i class="fas fa-dumbbell"></i><p>No workout logs yet.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ATTENDANCE ════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab === 'attendance'">
+      <div class="page-header"><h2>Attendance <span class="accent">History</span></h2></div>
+
+      <div class="quick-card" [class.checked-in]="isCheckedIn">
+        <div class="qcard-body">
+          <div class="qcard-icon"><i class="fas fa-map-marker-alt"></i></div>
+          <div>
+            <h4>{{ isCheckedIn ? 'Currently at the gym' : 'Not checked in' }}</h4>
+            <p *ngIf="isCheckedIn && checkInTime">Since {{ checkInTime | date:'shortTime' }}</p>
+          </div>
+        </div>
+        <button class="btn btn-sm" *ngIf="!isCheckedIn" (click)="doCheckIn()">Check In</button>
+        <button class="btn btn-sm btn-danger" *ngIf="isCheckedIn" (click)="doCheckOut()">Check Out</button>
+      </div>
+
+      <div class="table-wrap" *ngIf="attendance.length > 0" style="margin-top:1.5rem">
+        <table>
+          <thead><tr><th>Check In</th><th>Check Out</th><th>Duration</th><th>Method</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let a of attendance">
+              <td>{{ formatDate(a.checkIn) }} {{ a.checkIn | date:'shortTime' }}</td>
+              <td>{{ a.checkOut ? (a.checkOut | date:'shortTime') : '—' }}</td>
+              <td>{{ formatDuration(a.duration) }}</td>
+              <td><span class="method-badge">{{ a.method }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="empty-state" *ngIf="attendance.length === 0">
+        <i class="fas fa-calendar-check"></i><p>No attendance records yet.</p>
+      </div>
+    </div>
+
+    <!-- ══ SUBSCRIPTION ══════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab === 'subscription'">
+      <div class="page-header"><h2>My <span class="accent">Subscription</span></h2></div>
+
+      <div class="sub-detail-card" *ngIf="subscription">
+        <div class="sub-plan-header">
+          <h3>{{ subscription.plan | titlecase }} Plan</h3>
+          <span class="plan-status" [class]="subscription.status">{{ subscription.status }}</span>
+        </div>
+        <div class="sub-price">
+          {{ subscription.price }} EGP
+          <span>/ {{ subscription.durationMonths }} month{{ subscription.durationMonths > 1 ? 's' : '' }}</span>
+        </div>
+        <div class="sub-dates-row">
+          <div><label>Start Date</label><p>{{ formatDate(subscription.startDate) }}</p></div>
+          <div><label>End Date</label><p>{{ formatDate(subscription.endDate) }}</p></div>
+          <div><label>Days Left</label><p class="accent">{{ daysUntilExpiry() }} days</p></div>
+        </div>
+        <div class="sub-features" *ngIf="subscription.features?.length">
+          <h4>Included Features</h4>
+          <ul>
+            <li *ngFor="let f of subscription.features">
+              <i class="fas fa-check"></i> {{ f }}
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="no-sub-card" *ngIf="!subscription && !dataLoading">
+        <i class="fas fa-star"></i>
+        <p>You have no active subscription</p>
+        <a routerLink="/subscribe" class="btn">Subscribe Now <i class="fas fa-arrow-right"></i></a>
+      </div>
+
+      <div *ngIf="payments.length > 0">
+        <h4 class="section-subtitle">Payment History</h4>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Invoice</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let p of payments">
+                <td class="invoice-no">{{ p.invoiceNumber || '—' }}</td>
+                <td>{{ p.amountEGP || p.amount }} EGP</td>
+                <td><span class="status-badge" [class]="p.status">{{ p.status }}</span></td>
+                <td>{{ formatDate(p.createdAt) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PROFILE ═══════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab === 'profile'">
+      <div class="page-header">
+        <div><h2>My <span class="accent">Profile</span></h2></div>
+        <button class="btn btn-sm" *ngIf="!editMode" (click)="editMode=true">
+          <i class="fas fa-edit"></i> Edit
+        </button>
+        <button class="btn btn-sm btn-outline" *ngIf="editMode" (click)="editMode=false">Cancel</button>
+      </div>
+
+      <div class="profile-card-main">
+        <div class="profile-avatar-lg">{{ getInitials(user?.fullName || 'U') }}</div>
+        <div class="profile-info">
+          <h3>{{ user?.fullName }}</h3>
+          <p class="profile-email">{{ user?.email }}</p>
+          <div class="profile-tags">
+            <span class="tag-chip" *ngIf="user?.goal">{{ getGoalLabel(user.goal) }}</span>
+            <span class="level-pill" *ngIf="user?.level"
+              [style.background]="getLevelColor(user.level)+'22'"
+              [style.color]="getLevelColor(user.level)">{{ user.level }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-fields" *ngIf="!editMode">
+        <div class="field-row"><label>Phone</label><span>{{ user?.phone || '—' }}</span></div>
+        <div class="field-row"><label>Gender</label><span class="capitalize">{{ user?.gender || '—' }}</span></div>
+        <div class="field-row"><label>Goal</label><span>{{ getGoalLabel(user?.goal || '') }}</span></div>
+        <div class="field-row"><label>Level</label><span class="capitalize">{{ user?.level || '—' }}</span></div>
+      </div>
+
+      <div class="edit-form" *ngIf="editMode">
+        <div class="fg"><label>Phone</label><input [(ngModel)]="editPhone" type="tel" placeholder="01012345678" /></div>
+        <div class="fg">
+          <label>Goal</label>
+          <select [(ngModel)]="editGoal">
+            <option value="weight_loss">Weight Loss</option>
+            <option value="muscle_gain">Muscle Gain</option>
+            <option value="endurance">Endurance</option>
+            <option value="fitness">General Fitness</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Level</label>
+          <select [(ngModel)]="editLevel">
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="advanced">Advanced</option>
+          </select>
+        </div>
+        <button class="btn" (click)="saveProfile()"><i class="fas fa-save"></i> Save Changes</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<app-footer></app-footer>
