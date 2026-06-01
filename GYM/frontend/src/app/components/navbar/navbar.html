@@ -1,0 +1,21 @@
+<header>
+  <div class="logo" routerLink="/" style="cursor:pointer;">⚡ CORE-X</div>
+
+  <nav class="nav-links" [class.open]="menuOpen">
+    <a routerLink="/" (click)="menuOpen=false">Home</a>
+    <a *ngIf="!user" routerLink="/login" (click)="menuOpen=false">Login</a>
+    <a *ngIf="!user" routerLink="/register" class="nav-cta" (click)="menuOpen=false">Join Now</a>
+    <a *ngIf="auth.isLoggedIn && user" [routerLink]="getDashboardRoute()" (click)="menuOpen=false">
+      <i class="fas fa-th-large"></i> Dashboard
+    </a>
+    <div *ngIf="auth.isLoggedIn && user" class="nav-user" (click)="menuOpen=false">
+      <span class="user-badge" [class]="user.role">{{ user.role }}</span>
+      <span class="user-name">{{ user.fullName.split(' ')[0] }}</span>
+      <button class="logout-btn" (click)="logout()"><i class="fas fa-sign-out-alt"></i></button>
+    </div>
+  </nav>
+
+  <button class="hamburger" (click)="toggleMenu()">
+    <i class="fas" [class.fa-bars]="!menuOpen" [class.fa-times]="menuOpen"></i>
+  </button>
+</header>
