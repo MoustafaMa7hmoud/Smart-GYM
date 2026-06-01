@@ -1,0 +1,25 @@
+header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1rem 5%; background: #000; position: sticky; top: 0; z-index: 1000;
+  border-bottom: 1px solid #181818;
+}
+.logo { font-size: 1.7rem; font-weight: 800; color: #DAFF6E; letter-spacing: -0.5px; }
+.nav-links { display: flex; align-items: center; gap: 1.5rem; }
+.nav-links a { color: #ccc; text-decoration: none; font-weight: 500; font-size: 0.95rem; transition: color 0.3s; }
+.nav-links a:hover { color: #DAFF6E; }
+.nav-cta { background: #DAFF6E !important; color: #000 !important; padding: 9px 22px; border-radius: 50px; font-weight: 700 !important; font-size: 0.9rem !important; transition: transform 0.3s, box-shadow 0.3s !important; }
+.nav-cta:hover { transform: scale(1.05) !important; box-shadow: 0 8px 20px rgba(218,255,110,0.25) !important; }
+.nav-user { display: flex; align-items: center; gap: 10px; }
+.user-badge { font-size: 0.7rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; }
+.user-badge.admin { background: rgba(218,255,110,0.15); color: #DAFF6E; border: 1px solid rgba(218,255,110,0.3); }
+.user-badge.trainer { background: rgba(100,180,255,0.15); color: #64b4ff; border: 1px solid rgba(100,180,255,0.3); }
+.user-badge.user { background: rgba(255,255,255,0.08); color: #aaa; border: 1px solid #333; }
+.user-name { color: #fff; font-size: 0.9rem; font-weight: 500; }
+.logout-btn { background: transparent; border: 1px solid #333; color: #888; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; }
+.logout-btn:hover { border-color: #ff6b6b; color: #ff6b6b; }
+.hamburger { display: none; background: transparent; border: none; color: #DAFF6E; font-size: 1.4rem; cursor: pointer; }
+@media(max-width:768px) {
+  .hamburger { display: block; }
+  .nav-links { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #080808; border-bottom: 1px solid #222; flex-direction: column; padding: 1.5rem 5%; gap: 1.2rem; }
+  .nav-links.open { display: flex; }
+}

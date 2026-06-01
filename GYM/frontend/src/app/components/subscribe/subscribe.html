@@ -1,0 +1,148 @@
+<app-navbar></app-navbar>
+
+<div class="subscribe-page">
+
+  <!-- Step indicator -->
+  <div class="steps-bar" *ngIf="step !== 'success'">
+    <div class="step-item" [class.active]="['select','duration','confirm','paying'].includes(step)" [class.done]="['duration','confirm','paying'].includes(step)">
+      <div class="step-num">1</div><span>Choose Plan</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-item" [class.active]="['duration','confirm','paying'].includes(step)" [class.done]="['confirm','paying'].includes(step)">
+      <div class="step-num">2</div><span>Duration</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-item" [class.active]="['confirm','paying'].includes(step)" [class.done]="step === 'paying'">
+      <div class="step-num">3</div><span>Confirm</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-item" [class.active]="step === 'paying'">
+      <div class="step-num">4</div><span>Payment</span>
+    </div>
+  </div>
+
+  <div class="error-banner" *ngIf="error">
+    <i class="fas fa-exclamation-circle"></i> {{ error }}
+    <button class="close-err" (click)="error=''">✕</button>
+  </div>
+
+  <!-- STEP 1: SELECT PLAN -->
+  <div class="step-content" *ngIf="step === 'select'">
+    <div class="step-header">
+      <h2>Choose Your <span class="accent">Plan</span></h2>
+      <p>Pick the plan that matches your fitness goals</p>
+    </div>
+    <div class="plans-grid">
+      <div class="plan-card" *ngFor="let p of plans" [class.recommended]="p.recommended" (click)="selectPlan(p)">
+        <div class="rec-badge" *ngIf="p.recommended">⭐ Most Popular</div>
+        <h3 [style.color]="p.color">{{ p.name }}</h3>
+        <div class="plan-price">
+          <span class="price-num">{{ p.price }}</span>
+          <span class="price-unit"> EGP/month</span>
+        </div>
+        <ul class="feature-list">
+          <li *ngFor="let f of p.features"><i class="fas fa-check"></i> {{ f }}</li>
+        </ul>
+        <button class="select-btn" [style.background]="p.recommended ? '#DAFF6E' : 'transparent'"
+          [style.color]="p.recommended ? '#000' : p.color"
+          [style.borderColor]="p.color">
+          Select {{ p.name }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: DURATION -->
+  <div class="step-content" *ngIf="step === 'duration'">
+    <div class="step-header">
+      <h2>Choose <span class="accent">Duration</span></h2>
+      <p>Longer plans save you more money</p>
+    </div>
+    <div class="selected-plan-summary">
+      <span [style.color]="selectedPlan?.color">{{ selectedPlan?.name }} Plan</span>
+      <span class="base-price">{{ selectedPlan?.price }} EGP/month</span>
+    </div>
+    <div class="duration-grid">
+      <div class="dur-card" *ngFor="let d of durations"
+        [class.active]="selectedDuration === d.months"
+        (click)="selectedDuration = d.months">
+        <div class="dur-label">{{ d.label }}</div>
+        <div class="dur-total">{{ selectedPlan?.price * d.months }} EGP</div>
+        <div class="dur-discount" *ngIf="d.discount > 0">
+          <span class="discount-tag">{{ d.discount }}% OFF</span>
+          <span class="final-price">{{ selectedPlan?.price * d.months * (1 - d.discount/100) | number:'1.0-0' }} EGP</span>
+        </div>
+        <div class="per-month" *ngIf="d.discount > 0">
+          {{ (selectedPlan?.price * (1 - d.discount/100)) | number:'1.0-0' }} EGP/month
+        </div>
+      </div>
+    </div>
+    <div class="step-actions">
+      <button class="btn btn-outline" (click)="step='select'"><i class="fas fa-arrow-left"></i> Back</button>
+      <button class="btn" (click)="proceed()">Continue <i class="fas fa-arrow-right"></i></button>
+    </div>
+  </div>
+
+  <!-- STEP 3: CONFIRM -->
+  <div class="step-content" *ngIf="step === 'confirm'">
+    <div class="step-header">
+      <h2>Confirm <span class="accent">Order</span></h2>
+      <p>Review your subscription before payment</p>
+    </div>
+    <div class="order-card">
+      <div class="order-row"><span>Plan</span><strong [style.color]="selectedPlan?.color">{{ selectedPlan?.name }}</strong></div>
+      <div class="order-row"><span>Duration</span><strong>{{ getDurationLabel() }}</strong></div>
+      <div class="order-row" *ngIf="savingsAmount > 0"><span>Discount ({{ getDiscount() }}%)</span><strong class="savings">- {{ savingsAmount }} EGP</strong></div>
+      <div class="order-divider"></div>
+      <div class="order-row total"><span>Total</span><strong class="accent">{{ totalPrice }} EGP</strong></div>
+    </div>
+    <div class="features-recap">
+      <h4>What's included:</h4>
+      <ul>
+        <li *ngFor="let f of selectedPlan?.features"><i class="fas fa-check-circle"></i> {{ f }}</li>
+      </ul>
+    </div>
+    <div class="step-actions">
+      <button class="btn btn-outline" (click)="step='duration'"><i class="fas fa-arrow-left"></i> Back</button>
+      <button class="btn" (click)="confirmAndPay()" [disabled]="loading">
+        <span *ngIf="!loading"><i class="fas fa-lock"></i> Pay {{ totalPrice }} EGP</span>
+        <span *ngIf="loading"><i class="fas fa-spinner fa-spin"></i> Processing...</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- STEP 4: PAYING -->
+  <div class="step-content" *ngIf="step === 'paying'">
+    <div class="paying-state">
+      <div class="paying-icon"><i class="fas fa-credit-card"></i></div>
+      <h3>Complete Your Payment</h3>
+      <p>A Paymob payment window has been opened in a new tab.</p>
+      <p>Complete the payment there, then come back and click "I've Paid".</p>
+      <div class="paying-actions">
+        <a *ngIf="iframeUrl" [href]="iframeUrl" target="_blank" class="btn btn-outline">
+          <i class="fas fa-external-link-alt"></i> Reopen Payment Window
+        </a>
+        <button class="btn" (click)="checkPaymentStatus()">
+          <i class="fas fa-check"></i> I've Paid
+        </button>
+      </div>
+      <button class="cancel-link" (click)="step='confirm'; error=''">Cancel & go back</button>
+    </div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div class="step-content" *ngIf="step === 'success'">
+    <div class="success-state">
+      <div class="success-icon"><i class="fas fa-trophy"></i></div>
+      <h2>You're all set! 🎉</h2>
+      <p>Your <strong class="accent">{{ selectedPlan?.name }}</strong> subscription is now active.</p>
+      <p>Welcome to CORE-X — let's crush your goals!</p>
+      <div class="success-actions">
+        <a routerLink="/dashboard" class="btn">Go to Dashboard <i class="fas fa-arrow-right"></i></a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<app-footer></app-footer>

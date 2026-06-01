@@ -1,0 +1,322 @@
+<app-navbar></app-navbar>
+
+<div class="dashboard-layout">
+  <aside class="sidebar">
+    <div class="trainer-brand">
+      <div class="tr-avatar-sm">{{ getUserInitials(auth.currentUser?.fullName) }}</div>
+      <div>
+        <div class="brand-title">{{ getFirstName(auth.currentUser?.fullName) }}</div>
+        <div class="brand-sub trainer-label">Trainer</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button *ngFor="let tab of tabs" [class.active]="activeTab===tab.id" (click)="setTab(tab.id)">
+        <i class="fas" [class]="tab.icon"></i> {{ tab.label }}
+      </button>
+    </nav>
+  </aside>
+
+  <main class="dash-main">
+    <div class="success-toast" *ngIf="successMsg"><i class="fas fa-check-circle"></i> {{ successMsg }}</div>
+    <div class="error-toast" *ngIf="errorMsg"><i class="fas fa-exclamation-circle"></i> {{ errorMsg }}</div>
+    <div class="pending-banner" *ngIf="isPendingApproval">
+      <i class="fas fa-clock"></i> Your trainer profile is awaiting admin approval.
+    </div>
+    <div class="pending-banner warn" *ngIf="profileMissing && !profileLoading">
+      <i class="fas fa-user-plus"></i> Complete your trainer profile in the <strong>My Profile</strong> tab.
+    </div>
+
+    <!-- OVERVIEW -->
+    <div *ngIf="activeTab==='overview'">
+      <div class="page-header">
+        <div><h2>Trainer <span class="accent">Dashboard</span></h2><p>Your coaching overview</p></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card blue"><div class="stat-icon"><i class="fas fa-users"></i></div><div><div class="stat-val">{{ userCount }}</div><div class="stat-label">Total Clients</div></div></div>
+        <div class="stat-card yellow"><div class="stat-icon"><i class="fas fa-dumbbell"></i></div><div><div class="stat-val">{{ workoutPlans.length }}</div><div class="stat-label">Plans Created</div></div></div>
+        <div class="stat-card green"><div class="stat-icon"><i class="fas fa-running"></i></div><div><div class="stat-val">{{ exercises.length }}</div><div class="stat-label">Exercises</div></div></div>
+        <div class="stat-card orange"><div class="stat-icon"><i class="fas fa-star"></i></div><div><div class="stat-val">{{ trainerProfile?.rating ?? '—' }}/5</div><div class="stat-label">Rating</div></div></div>
+      </div>
+
+      <div class="overview-grid">
+        <div class="section-card">
+          <h4 class="card-title"><i class="fas fa-users accent"></i> My Clients</h4>
+          <div class="client-mini-list">
+            <div class="client-mini" *ngFor="let u of clientUsers">
+              <div class="mini-avatar">{{ u.fullName[0] }}</div>
+              <div><div class="c-name">{{ u.fullName }}</div><div class="c-goal">{{ u.goal || 'No goal set' }}</div></div>
+              <span class="level-tag" [style.color]="getLevelColor(u.level||'beginner')">{{ u.level || 'beginner' }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="section-card">
+          <h4 class="card-title"><i class="fas fa-dumbbell accent"></i> Recent Plans</h4>
+          <div class="plan-mini-list">
+            <div class="plan-mini" *ngFor="let p of workoutPlans.slice(0,4)">
+              <div class="p-level" [style.color]="getLevelColor(p.level)">{{ p.level }}</div>
+              <div class="p-title">{{ p.title }}</div>
+              <div class="p-meta">{{ p.durationWeeks }}w · {{ p.daysPerWeek }}x/week</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENTS -->
+    <div *ngIf="activeTab==='clients'">
+      <div class="page-header"><div><h2>My <span class="accent">Clients</span></h2><p>{{ userCount }} members</p></div></div>
+      <div class="clients-grid">
+        <div class="client-card" *ngFor="let u of clientUsers">
+          <div class="client-header">
+            <div class="c-avatar">{{ u.fullName[0] }}</div>
+            <div>
+              <h4>{{ u.fullName }}</h4>
+              <p>{{ u.email }}</p>
+            </div>
+          </div>
+          <div class="client-details">
+            <div class="cd-row"><label>Goal</label><span>{{ u.goal || '—' }}</span></div>
+            <div class="cd-row"><label>Level</label><span class="capitalize" [style.color]="getLevelColor(u.level||'beginner')">{{ u.level || 'beginner' }}</span></div>
+            <div class="cd-row"><label>Weight</label><span>{{ u.weight || '—' }} kg</span></div>
+            <div class="cd-row"><label>Height</label><span>{{ u.height || '—' }} cm</span></div>
+          </div>
+          <div class="client-joined">Joined {{ formatDate(u.joinDate) }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXERCISES -->
+    <div *ngIf="activeTab==='exercises'">
+      <div class="page-header">
+        <div><h2>Exercise <span class="accent">Library</span></h2></div>
+        <button class="btn btn-sm" (click)="showAddExercise=!showAddExercise"><i class="fas fa-plus"></i> Add Exercise</button>
+      </div>
+
+      <div class="add-form" *ngIf="showAddExercise">
+        <h4>New Exercise</h4>
+        <div class="edit-grid">
+          <div class="fg"><label>Name *</label><input [(ngModel)]="newExercise.name" placeholder="Bench Press" /></div>
+          <div class="fg"><label>Muscle Group</label>
+            <select [(ngModel)]="newExercise.muscle">
+              <option *ngFor="let m of muscleGroups" [value]="m">{{ m }}</option>
+            </select>
+          </div>
+          <div class="fg"><label>Level</label>
+            <select [(ngModel)]="newExercise.level">
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+          <div class="fg"><label>Category</label>
+            <select [(ngModel)]="newExercise.category">
+              <option value="strength">Strength</option>
+              <option value="cardio">Cardio</option>
+              <option value="flexibility">Flexibility</option>
+            </select>
+          </div>
+          <div class="fg" style="grid-column:1/-1"><label>Description</label><input [(ngModel)]="newExercise.description" placeholder="Brief description..." /></div>
+          <div class="fg" style="grid-column:1/-1"><label>Tips (comma-separated)</label><input [(ngModel)]="newExercise.tips" placeholder="Keep back straight, Control the rep..." /></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-sm" (click)="addExercise()"><i class="fas fa-plus"></i> Add</button>
+          <button class="btn btn-sm btn-outline" (click)="showAddExercise=false">Cancel</button>
+        </div>
+      </div>
+
+      <div *ngIf="!selectedMuscle && !selectedExercise">
+        <div class="muscle-chips">
+          <div class="muscle-chip" *ngFor="let m of muscleGroups" (click)="selectMuscle(m)">
+            {{ m[0].toUpperCase() + m.slice(1) }}
+            <span class="chip-count">{{ getExerciseCount(m) }}</span>
+          </div>
+          <div class="muscle-chip all" (click)="selectedMuscle=null; selectedExercise=null">
+            All <span class="chip-count">{{ exercises.length }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="selectedMuscle && !selectedExercise">
+        <button class="back-btn" (click)="selectedMuscle=null"><i class="fas fa-arrow-left"></i> All Muscles</button>
+        <div class="ex-list">
+          <div class="ex-row" *ngFor="let ex of filteredExercises" (click)="openExercise(ex)">
+            <div><h4>{{ ex.name }}</h4><span class="small-tag">{{ ex.category }}</span></div>
+            <span class="level-pill" [style.background]="getLevelColor(ex.level)+'22'" [style.color]="getLevelColor(ex.level)">{{ ex.level }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="selectedExercise">
+        <button class="back-btn" (click)="selectedExercise=null"><i class="fas fa-arrow-left"></i> Back</button>
+        <div class="ex-detail-card">
+          <h3>{{ selectedExercise.name }}</h3>
+          <div class="tag-row">
+            <span class="small-tag">{{ selectedExercise.muscle }}</span>
+            <span class="level-pill" [style.background]="getLevelColor(selectedExercise.level)+'22'" [style.color]="getLevelColor(selectedExercise.level)">{{ selectedExercise.level }}</span>
+            <span class="small-tag">{{ selectedExercise.category }}</span>
+          </div>
+          <p>{{ selectedExercise.description }}</p>
+          <div *ngIf="selectedExercise.tips.length">
+            <h5 style="color:#DAFF6E;margin:1rem 0 0.5rem">Tips:</h5>
+            <ul class="tips-list"><li *ngFor="let t of selectedExercise.tips">{{ t }}</li></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLANS -->
+    <div *ngIf="activeTab==='plans'">
+      <div class="page-header">
+        <div><h2>Workout <span class="accent">Plans</span></h2><p>{{ workoutPlans.length }} plans</p></div>
+        <button class="btn btn-sm" (click)="showAddPlan=!showAddPlan"><i class="fas fa-plus"></i> Create Plan</button>
+      </div>
+
+      <div class="add-form" *ngIf="showAddPlan">
+        <h4>New Workout Plan</h4>
+        <div class="edit-grid">
+          <div class="fg" style="grid-column:1/-1"><label>Title *</label><input [(ngModel)]="newPlan.title" placeholder="Beginner Full Body" /></div>
+          <div class="fg">
+            <label>Goal</label>
+            <select [(ngModel)]="newPlan.goal">
+              <option value="muscleGain">Muscle Gain</option>
+              <option value="weightLoss">Weight Loss</option>
+              <option value="endurance">Endurance</option>
+              <option value="generalFitness">General Fitness</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Level</label>
+            <select [(ngModel)]="newPlan.level">
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+          <div class="fg"><label>Duration (weeks)</label><input type="number" [(ngModel)]="newPlan.durationWeeks" /></div>
+          <div class="fg"><label>Days per week</label><input type="number" [(ngModel)]="newPlan.daysPerWeek" /></div>
+          <div class="fg" style="grid-column:1/-1"><label>Description</label><input [(ngModel)]="newPlan.description" placeholder="Short description..." /></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-sm" (click)="addPlan()"><i class="fas fa-plus"></i> Create</button>
+          <button class="btn btn-sm btn-outline" (click)="showAddPlan=false">Cancel</button>
+        </div>
+      </div>
+
+      <div class="plans-grid">
+        <div class="plan-card" *ngFor="let p of workoutPlans">
+          <div class="plan-level" [style.color]="getLevelColor(p.level)">{{ p.level }}</div>
+          <h3>{{ p.title }}</h3>
+          <p>{{ p.description }}</p>
+          <div class="plan-footer">
+            <span><i class="fas fa-calendar-week"></i> {{ p.durationWeeks }}w</span>
+            <span><i class="fas fa-dumbbell"></i> {{ p.daysPerWeek }}x/week</span>
+            <span class="goal-tag">{{ getGoalLabel(p.goal) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROFILE -->
+    <div *ngIf="activeTab==='profile'">
+      <div class="page-header">
+        <div><h2>My <span class="accent">Profile</span></h2></div>
+        <button *ngIf="trainerProfile && !editProfileMode" class="btn btn-sm" (click)="editProfileMode=true; syncProfileForm()">
+          <i class="fas fa-edit"></i> Edit
+        </button>
+      </div>
+
+      <p *ngIf="profileLoading" class="empty-hint">Loading profile...</p>
+
+      <div class="profile-main-card" *ngIf="!profileLoading">
+        <div class="profile-avatar">{{ getUserInitials(auth.currentUser?.fullName) }}</div>
+        <div class="profile-info">
+          <h3>{{ auth.currentUser?.fullName }}</h3>
+          <p class="profile-email">{{ auth.currentUser?.email }}</p>
+          <span class="trainer-badge" *ngIf="trainerProfile?.isApproved">Approved Trainer</span>
+          <span class="trainer-badge pending" *ngIf="trainerProfile && !trainerProfile.isApproved">Pending approval</span>
+        </div>
+      </div>
+
+      <div class="add-form" *ngIf="profileMissing && !profileLoading">
+        <h4>Create your trainer profile</h4>
+        <div class="edit-grid">
+          <div class="fg" style="grid-column:1/-1">
+            <label>Bio * (min 50 characters)</label>
+            <textarea [(ngModel)]="profileForm.bio" rows="4" class="profile-textarea"></textarea>
+          </div>
+          <div class="fg"><label>Experience (years)</label><input type="number" [(ngModel)]="profileForm.experience" min="0" max="50" /></div>
+          <div class="fg"><label>Session price (EGP)</label><input type="number" [(ngModel)]="profileForm.sessionPrice" min="0" /></div>
+          <div class="fg" style="grid-column:1/-1">
+            <label>Specializations</label>
+            <div class="spec-tags">
+              <label *ngFor="let s of trainerSpecOptions" class="spec-check">
+                <input type="checkbox" [checked]="profileForm.specializations.includes(s.value)" (change)="toggleProfileSpec(s.value)" />
+                {{ s.label }}
+              </label>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-sm" [disabled]="savingProfile" (click)="createProfile()">
+          <i class="fas fa-save"></i> Submit profile
+        </button>
+      </div>
+
+      <div class="add-form" *ngIf="editProfileMode && trainerProfile">
+        <h4>Edit profile</h4>
+        <div class="edit-grid">
+          <div class="fg" style="grid-column:1/-1">
+            <label>Bio *</label>
+            <textarea [(ngModel)]="profileForm.bio" rows="4" class="profile-textarea"></textarea>
+          </div>
+          <div class="fg"><label>Experience (years)</label><input type="number" [(ngModel)]="profileForm.experience" /></div>
+          <div class="fg"><label>Session price (EGP)</label><input type="number" [(ngModel)]="profileForm.sessionPrice" /></div>
+          <div class="fg">
+            <label>Available for sessions</label>
+            <select [(ngModel)]="profileForm.isAvailable">
+              <option [ngValue]="true">Yes</option>
+              <option [ngValue]="false">No</option>
+            </select>
+          </div>
+          <div class="fg" style="grid-column:1/-1">
+            <label>Specializations</label>
+            <div class="spec-tags">
+              <label *ngFor="let s of trainerSpecOptions" class="spec-check">
+                <input type="checkbox" [checked]="profileForm.specializations.includes(s.value)" (change)="toggleProfileSpec(s.value)" />
+                {{ s.label }}
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-sm" [disabled]="savingProfile" (click)="saveProfile()">Save</button>
+          <button class="btn btn-sm btn-outline" (click)="editProfileMode=false">Cancel</button>
+        </div>
+      </div>
+
+      <div *ngIf="trainerProfile && !editProfileMode" class="trainer-details-grid">
+        <div class="td-card"><div class="td-label">Experience</div><div class="td-val accent">{{ trainerProfile.experience }} years</div></div>
+        <div class="td-card"><div class="td-label">Session Price</div><div class="td-val accent">{{ trainerProfile.sessionPrice }} EGP</div></div>
+        <div class="td-card"><div class="td-label">Rating</div><div class="td-val accent">{{ trainerProfile.rating }}/5</div></div>
+        <div class="td-card"><div class="td-label">Clients</div><div class="td-val accent">{{ userCount }}</div></div>
+      </div>
+      <div class="section-card" *ngIf="trainerProfile && !editProfileMode">
+        <h4 class="card-title">Bio</h4>
+        <p style="color:#aaa;line-height:1.7">{{ trainerProfile.bio }}</p>
+      </div>
+      <div class="section-card" *ngIf="trainerProfile && !editProfileMode">
+        <h4 class="card-title">Specializations</h4>
+        <div class="spec-tags">
+          <span *ngFor="let s of trainerProfile.specializations" class="spec-chip">{{ formatSpec(s) }}</span>
+        </div>
+      </div>
+      <div class="section-card" *ngIf="trainerProfile?.certificateLabels?.length && !editProfileMode">
+        <h4 class="card-title">Certificates</h4>
+        <div class="cert-list">
+          <span *ngFor="let c of trainerProfile.certificateLabels" class="cert-chip">{{ c }}</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+<app-footer></app-footer>

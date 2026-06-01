@@ -1,0 +1,22 @@
+<app-navbar></app-navbar>
+<div class="qr-scanner" style="padding:1.5rem;max-width:480px;margin:0 auto">
+  <h2>QR Check-in</h2>
+  <p>Point the camera at the member's QR code.</p>
+
+  @if (loading()) {
+    <p>Starting camera…</p>
+  }
+
+  @if (cameraError(); as err) {
+    <p class="msg error">{{ err }}</p>
+  }
+
+  <div [id]="readerId"></div>
+
+  @if (statusMessage(); as msg) {
+    <p class="msg" [class.success]="statusType() === 'success'" [class.error]="statusType() === 'error'">
+      {{ msg }}
+    </p>
+  }
+  <p style="margin-top:1rem"><a routerLink="/admin">← Back to admin</a></p>
+</div>
