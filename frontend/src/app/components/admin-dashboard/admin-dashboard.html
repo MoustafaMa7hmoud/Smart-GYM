@@ -1,0 +1,661 @@
+<app-navbar></app-navbar>
+
+<div class="dashboard-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="admin-brand">
+      <div class="brand-icon"><i class="fas fa-shield-alt"></i></div>
+      <div>
+        <div class="brand-title">Admin Panel</div>
+        <div class="brand-sub">{{ getFirstName(auth.currentUser?.fullName) }}</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button *ngFor="let tab of tabs" [class.active]="activeTab === tab.id" (click)="setTab(tab.id)">
+        <i class="fas" [class]="tab.icon"></i> {{ tab.label }}
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="dash-main">
+    <div class="success-toast" *ngIf="successMsg"><i class="fas fa-check-circle"></i> {{ successMsg }}</div>
+    <div class="success-toast" *ngIf="errorMsg" style="border-color:rgba(255,107,107,0.3);background:rgba(255,107,107,0.1);color:#ff6b6b">
+      <i class="fas fa-exclamation-circle"></i> {{ errorMsg }}
+    </div>
+
+    <!-- ── OVERVIEW ── -->
+    <div *ngIf="activeTab === 'overview'">
+      <div class="page-header">
+        <div>
+          <h2>Dashboard <span class="accent">Overview</span></h2>
+          <p>Real-time gym statistics</p>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline" (click)="loadOverview()" [disabled]="loadingOverview">
+          <i class="fas fa-sync" [class.fa-spin]="loadingOverview"></i> Refresh
+        </button>
+      </div>
+
+      <p *ngIf="loadingOverview" class="overview-loading"><i class="fas fa-spinner fa-spin"></i> Loading dashboard data…</p>
+
+      <div class="stats-grid" [class.stats-dimmed]="loadingOverview">
+        <div class="stat-card blue">
+          <div class="stat-icon"><i class="fas fa-users"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ adminStats.totalUsers }}</div>
+            <div class="stat-label">Total Members</div>
+          </div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon"><i class="fas fa-user-tie"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ adminStats.totalTrainers }}</div>
+            <div class="stat-label">Trainers</div>
+          </div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-icon"><i class="fas fa-star"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ adminStats.totalActiveSubscriptions }}</div>
+            <div class="stat-label">Active Subscriptions</div>
+          </div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-icon"><i class="fas fa-sign-in-alt"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ todayCheckInsCount }}</div>
+            <div class="stat-label">Today's Check-ins</div>
+          </div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-icon"><i class="fas fa-sign-out-alt"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ todayCheckOutsCount }}</div>
+            <div class="stat-label">Today's Check-outs</div>
+          </div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-icon"><i class="fas fa-heartbeat"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ presentMembers.length }}</div>
+            <div class="stat-label">Members Present Now</div>
+          </div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ totalRevenue }} EGP</div>
+            <div class="stat-label">Total Revenue</div>
+          </div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-icon"><i class="fas fa-cog"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ adminStats.equipmentCount ?? machines.length }}</div>
+            <div class="stat-label">Equipment</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance Overview Section -->
+      <div class="attendance-dashboard-layout" [class.section-dimmed]="loadingOverview" style="display: grid; grid-template-columns: 2fr 1.2fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+        <!-- Left: Recent Activity Timeline -->
+        <div class="section-card" style="margin: 0;">
+          <h4 class="card-title"><i class="fas fa-history accent"></i> Recent Attendance Activity</h4>
+          <p *ngIf="loadingOverview || loadingAttendance" style="color:#888;font-size:0.9rem">Loading activity…</p>
+          <div class="activity-timeline" *ngIf="!loadingOverview && !loadingAttendance">
+            <div class="activity-item" *ngFor="let a of recentAttendanceActivity" style="margin-bottom: 15px; position: relative; padding-left: 20px; border-left: 2px solid #222;">
+              <span style="position: absolute; left: -6px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: #DAFF6E;"></span>
+              <div style="font-size: 0.85rem; color: #aaa;">{{ formatDate(a.checkIn) }} · {{ formatTime(a.checkIn) }}</div>
+              <div style="font-size: 0.95rem; color: #fff; font-weight: 500;">{{ getMemberName(a) }}</div>
+              <div style="font-size: 0.82rem; color: #777;">
+                {{ a.checkOut ? 'Checked out (Duration: ' + formatAttendanceDuration(a) + ')' : 'Checked in' }} via <span class="method-badge" style="padding: 1px 6px; font-size: 0.68rem;">{{ getAttendanceMethod(a) }}</span>
+              </div>
+            </div>
+            <p *ngIf="!recentAttendanceActivity.length" style="color:#666;font-size:0.9rem;margin:1rem 0 0 0">No recent activity.</p>
+          </div>
+        </div>
+
+        <!-- Right: Present Members List -->
+        <div class="section-card" style="margin: 0;">
+          <h4 class="card-title"><i class="fas fa-heartbeat accent"></i> Present Now ({{ presentMembers.length }})</h4>
+          <p *ngIf="loadingOverview || loadingAttendance" style="color:#888;font-size:0.9rem">Loading present members…</p>
+          <div class="attendance-list" *ngIf="!loadingOverview && !loadingAttendance">
+            <div class="att-row" *ngFor="let a of presentMembers" style="padding: 8px 0; border-bottom: 1px solid #111; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+              <div class="att-user" style="font-weight: 500; color: #fff; display: flex; align-items: center; gap: 8px;">
+                <div class="mini-avatar" style="width: 26px; height: 26px; font-size: 0.7rem;">{{ getMemberInitial(a) }}</div>
+                <span>{{ getMemberName(a) }}</span>
+              </div>
+              <div class="att-time" style="color: #34d399; font-size: 0.8rem; margin-top: 4px; padding-left: 34px;">
+                <i class="fas fa-clock"></i> In: {{ formatTime(a.checkIn) }}
+              </div>
+            </div>
+            <p *ngIf="!presentMembers.length" style="color:#666;font-size:0.9rem;margin:1rem 0 0 0">No members currently in the gym.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance History Table on Overview -->
+      <div class="section-card" [class.section-dimmed]="loadingOverview">
+        <h4 class="card-title"><i class="fas fa-table accent"></i> Attendance History Table</h4>
+        <p *ngIf="loadingOverview || loadingAttendance" style="color:#888;font-size:0.9rem">Loading history…</p>
+        <div class="table-wrap" *ngIf="!loadingOverview && !loadingAttendance">
+          <table>
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Date</th>
+                <th>Check In</th>
+                <th>Check Out</th>
+                <th>Duration</th>
+                <th>Method</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let a of attendance.slice(0, 10)">
+                <td><div class="user-cell"><div class="mini-avatar">{{ getMemberInitial(a) }}</div>{{ getMemberName(a) }}</div></td>
+                <td>{{ formatDate(a.checkIn) }}</td>
+                <td>{{ formatTime(a.checkIn) }}</td>
+                <td>{{ formatTime(a.checkOut) }}</td>
+                <td>{{ formatAttendanceDuration(a) }}</td>
+                <td><span class="method-badge">{{ getAttendanceMethod(a) }}</span></td>
+                <td style="color:#666;font-size:0.82rem;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" [title]="a.notes || ''">{{ a.notes || '—' }}</td>
+              </tr>
+              <tr *ngIf="!attendance.length">
+                <td colspan="7" style="text-align:center;color:#666">No attendance records found.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top: 1rem; text-align: right;" *ngIf="attendance.length > 10">
+          <button class="btn btn-sm btn-outline" (click)="setTab('attendance')">View All Attendance <i class="fas fa-arrow-right"></i></button>
+        </div>
+      </div>
+
+      <!-- Quick machines status -->
+      <div class="section-card" [class.section-dimmed]="loadingOverview">
+        <h4 class="card-title"><i class="fas fa-cog accent"></i> Equipment Status</h4>
+        <p *ngIf="(loadingOverview || loadingMachines) && !machines.length" style="color:#888;font-size:0.9rem">Loading equipment…</p>
+        <div class="machine-status-list">
+          <div class="mstatus-row" *ngFor="let m of overviewMachines">
+            <span class="m-name">{{ m.name }}</span>
+            <span class="m-location">{{ getMachineLocation(m) }}</span>
+            <span class="status-dot" [style.background]="getStatusColor(m.status)"></span>
+            <span class="m-status" [style.color]="getStatusColor(m.status)">{{ m.status }}</span>
+          </div>
+          <p *ngIf="!machines.length" style="color:#666;font-size:0.9rem;margin:0">No equipment registered.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── USERS ── -->
+    <div *ngIf="activeTab === 'users' && !selectedUser">
+      <div class="page-header">
+        <div><h2>Manage <span class="accent">Members</span></h2><p>{{ users.length }} total users</p></div>
+      </div>
+      <div class="search-bar">
+        <i class="fas fa-search"></i>
+        <input type="text" [(ngModel)]="userSearch" placeholder="Search by name or email..." />
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th><th>Joined</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let u of filteredUsers">
+              <td><div class="user-cell"><div class="mini-avatar">{{ u.fullName[0] }}</div>{{ u.fullName }}</div></td>
+              <td class="email-td">{{ u.email }}</td>
+              <td><span class="role-badge" [style.color]="getRoleColor(u.role)" [style.borderColor]="getRoleColor(u.role)">{{ u.role }}</span></td>
+              <td>{{ u.phone || '—' }}</td>
+              <td>{{ formatDate(u.joinDate) }}</td>
+              <td>
+                <button class="icon-btn view" (click)="openUser(u)" title="View"><i class="fas fa-eye"></i></button>
+                <button class="icon-btn delete" (click)="deleteUser(u._id)" title="Delete"><i class="fas fa-trash"></i></button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- User Detail -->
+    <div *ngIf="activeTab === 'users' && selectedUser">
+      <button class="back-btn" (click)="selectedUser=null"><i class="fas fa-arrow-left"></i> Back to Members</button>
+      <div class="detail-card">
+        <div class="detail-header">
+          <div class="detail-avatar">{{ selectedUser.fullName[0] }}</div>
+          <div>
+            <h3>{{ selectedUser.fullName }}</h3>
+            <p class="detail-email">{{ selectedUser.email }}</p>
+            <span class="role-badge" [style.color]="getRoleColor(selectedUser.role)">{{ selectedUser.role }}</span>
+          </div>
+          <button class="btn btn-sm" *ngIf="!editUserMode" (click)="editUserMode=true"><i class="fas fa-edit"></i> Edit</button>
+        </div>
+        <div class="fields-grid" *ngIf="!editUserMode">
+          <div class="field-item"><label>Phone</label><span>{{ selectedUser.phone || '—' }}</span></div>
+          <div class="field-item"><label>Gender</label><span class="capitalize">{{ selectedUser.gender || '—' }}</span></div>
+          <div class="field-item"><label>Goal</label><span>{{ selectedUser.goal || '—' }}</span></div>
+          <div class="field-item"><label>Level</label><span class="capitalize">{{ selectedUser.level || '—' }}</span></div>
+          <div class="field-item"><label>Weight</label><span>{{ selectedUser.weight || '—' }} kg</span></div>
+          <div class="field-item"><label>Joined</label><span>{{ formatDate(selectedUser.joinDate) }}</span></div>
+        </div>
+        <div class="edit-grid" *ngIf="editUserMode">
+          <div class="fg"><label>Full Name</label><input [(ngModel)]="editUserData.fullName" /></div>
+          <div class="fg"><label>Email</label><input [(ngModel)]="editUserData.email" /></div>
+          <div class="fg"><label>Phone</label><input [(ngModel)]="editUserData.phone" /></div>
+          <div class="fg">
+            <label>Role</label>
+            <select [(ngModel)]="editUserData.role">
+              <option value="user">user</option>
+              <option value="trainer">trainer</option>
+              <option value="admin">admin</option>
+            </select>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-sm" (click)="saveUser()"><i class="fas fa-save"></i> Save</button>
+            <button class="btn btn-sm btn-outline" (click)="editUserMode=false">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TRAINERS (list) ── -->
+    <div *ngIf="activeTab === 'trainers' && !selectedTrainer">
+      <div class="page-header">
+        <div><h2>Manage <span class="accent">Trainers</span></h2><p>{{ trainerTotal || trainers.length }} registered trainers</p></div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-sm btn-outline" (click)="loadTrainers()"><i class="fas fa-sync"></i> Refresh</button>
+          <button class="btn btn-sm" (click)="toggleCreateTrainerForm()" *ngIf="trainersWithoutProfile.length">
+            <i class="fas fa-plus"></i> Create Profile
+          </button>
+        </div>
+      </div>
+
+      <div class="add-form" *ngIf="showCreateTrainer">
+        <h4>Create trainer profile for user</h4>
+        <div class="edit-grid">
+          <div class="fg" style="grid-column:1/-1">
+            <label>Trainer account *</label>
+            <select [(ngModel)]="createTrainerUserId">
+              <option value="">— Select user —</option>
+              <option *ngFor="let u of trainersWithoutProfile" [value]="u._id">{{ u.fullName }} ({{ u.email }})</option>
+            </select>
+          </div>
+          <div class="fg" style="grid-column:1/-1">
+            <label>Bio * (min 50 chars)</label>
+            <textarea [(ngModel)]="createTrainerData.bio" rows="3" style="width:100%;padding:11px;background:#0d0d0d;border:1px solid #222;border-radius:10px;color:#fff"></textarea>
+          </div>
+          <div class="fg"><label>Experience (years)</label><input type="number" [(ngModel)]="createTrainerData.experience" min="0" max="50" /></div>
+          <div class="fg"><label>Session price (EGP)</label><input type="number" [(ngModel)]="createTrainerData.sessionPrice" min="0" /></div>
+          <div class="fg" style="grid-column:1/-1">
+            <label>Specializations</label>
+            <div class="spec-chips">
+              <label *ngFor="let s of trainerSpecOptions" class="spec-check">
+                <input type="checkbox" [checked]="createTrainerData.specializations.includes(s.value)" (change)="toggleCreateSpec(s.value)" />
+                {{ s.label }}
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-sm" (click)="createTrainerProfileForUser()"><i class="fas fa-save"></i> Create &amp; Approve</button>
+          <button class="btn btn-sm btn-outline" (click)="showCreateTrainer=false">Cancel</button>
+        </div>
+      </div>
+
+      <div class="search-bar">
+        <i class="fas fa-search"></i>
+        <input type="text" [(ngModel)]="trainerSearch" placeholder="Search trainers..." />
+      </div>
+
+      <div class="trainers-grid">
+        <div class="trainer-card" *ngFor="let t of filteredTrainers">
+          <div class="trainer-top">
+            <div class="tr-avatar">{{ t.fullName[0] }}</div>
+            <div>
+              <h4>{{ t.fullName }}</h4>
+              <p class="tr-email">{{ t.email }}</p>
+            </div>
+            <span class="approved-badge" [class.yes]="t.isApproved" [class.no]="!t.isApproved">
+              {{ t.isApproved ? 'Approved' : 'Pending' }}
+            </span>
+          </div>
+          <div class="spec-chips">
+            <span *ngFor="let s of (t.specializations || []).slice(0,3)" class="spec-chip">{{ formatSpec(s) }}</span>
+          </div>
+          <div class="tr-stats">
+            <span><i class="fas fa-star accent"></i> {{ t.rating | number:'1.1-1' }}/5</span>
+            <span><i class="fas fa-users"></i> {{ t.clientCount || t.totalClients || 0 }} clients</span>
+            <span><i class="fas fa-briefcase"></i> {{ t.experience }} yrs</span>
+            <span class="tr-price">{{ t.sessionPrice }} EGP</span>
+            <span [class.avail-yes]="t.isAvailable" [class.avail-no]="!t.isAvailable">
+              {{ t.isAvailable ? 'Available' : 'Unavailable' }}
+            </span>
+          </div>
+          <div class="trainer-actions">
+            <button class="btn btn-sm btn-outline" (click)="openTrainer(t)"><i class="fas fa-eye"></i> Details</button>
+            <button *ngIf="!t.isApproved" class="btn btn-sm" (click)="approveTrainer(t._id)"><i class="fas fa-check"></i></button>
+          </div>
+        </div>
+      </div>
+      <p *ngIf="!filteredTrainers.length" class="empty-hint">No trainers found.</p>
+    </div>
+
+    <!-- ── TRAINER DETAIL ── -->
+    <div *ngIf="activeTab === 'trainers' && selectedTrainer">
+      <button class="back-btn" (click)="closeTrainer()"><i class="fas fa-arrow-left"></i> Back to Trainers</button>
+      <div class="detail-card" *ngIf="!loadingTrainerDetail; else trainerLoading">
+        <div class="detail-header">
+          <div class="detail-avatar">{{ selectedTrainer.fullName[0] }}</div>
+          <div>
+            <h3>{{ selectedTrainer.fullName }}</h3>
+            <p class="detail-email">{{ selectedTrainer.email }}</p>
+            <span class="approved-badge" [class.yes]="selectedTrainer.isApproved" [class.no]="!selectedTrainer.isApproved">
+              {{ selectedTrainer.isApproved ? 'Approved' : 'Pending' }}
+            </span>
+            <span class="avail-pill" [class.avail-yes]="selectedTrainer.isAvailable" [class.avail-no]="!selectedTrainer.isAvailable">
+              {{ selectedTrainer.isAvailable ? 'Available' : 'Unavailable' }}
+            </span>
+          </div>
+          <button class="btn btn-sm" *ngIf="!editTrainerMode" (click)="startEditTrainer()"><i class="fas fa-edit"></i> Edit Profile</button>
+        </div>
+
+        <!-- View Mode -->
+        <ng-container *ngIf="!editTrainerMode">
+          <div class="fields-grid">
+            <div class="field-item"><label>Rating</label><span>{{ selectedTrainer.rating | number:'1.1-1' }}/5 ({{ selectedTrainer.ratingCount }} reviews)</span></div>
+            <div class="field-item"><label>Experience</label><span>{{ selectedTrainer.experience }} years</span></div>
+            <div class="field-item"><label>Session price</label><span>{{ selectedTrainer.sessionPrice }} EGP</span></div>
+            <div class="field-item"><label>Total clients</label><span>{{ selectedTrainer.totalClients }}</span></div>
+          </div>
+
+          <div class="section-card" style="margin-top:1rem">
+            <h4 class="card-title">Bio</h4>
+            <p style="color:#aaa;line-height:1.7">{{ selectedTrainer.bio || '—' }}</p>
+          </div>
+
+          <div class="section-card">
+            <h4 class="card-title">Specializations</h4>
+            <div class="spec-chips">
+              <span *ngFor="let s of selectedTrainer.specializations" class="spec-chip">{{ formatSpec(s) }}</span>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- Edit Mode -->
+        <ng-container *ngIf="editTrainerMode">
+          <div class="edit-grid" style="margin-top:1rem">
+            <div class="fg" style="grid-column:1/-1">
+              <label>Bio * (min 50 chars)</label>
+              <textarea [(ngModel)]="editTrainerData.bio" rows="3" style="width:100%;padding:11px;background:#0d0d0d;border:1px solid #222;border-radius:10px;color:#fff"></textarea>
+            </div>
+            <div class="fg"><label>Experience (years)</label><input type="number" [(ngModel)]="editTrainerData.experience" min="0" max="50" /></div>
+            <div class="fg"><label>Session price (EGP)</label><input type="number" [(ngModel)]="editTrainerData.sessionPrice" min="0" /></div>
+            <div class="fg" style="grid-column:1/-1">
+              <label>Specializations</label>
+              <div class="spec-chips">
+                <label *ngFor="let s of trainerSpecOptions" class="spec-check" style="margin-right: 15px;">
+                  <input type="checkbox" [checked]="editTrainerData.specializations.includes(s.value)" (change)="toggleEditSpec(s.value)" />
+                  {{ s.label }}
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="btn-row" style="margin-top:1rem">
+            <button class="btn btn-sm" (click)="saveTrainer()"><i class="fas fa-save"></i> Save Changes</button>
+            <button class="btn btn-sm btn-outline" (click)="editTrainerMode=false">Cancel</button>
+          </div>
+        </ng-container>
+
+        <div class="section-card" style="margin-top:1.5rem">
+          <h4 class="card-title"><i class="fas fa-users accent"></i> Assigned members ({{ selectedTrainer.assignedUsers?.length || 0 }})</h4>
+          <div class="assign-row">
+            <select [(ngModel)]="assignUserId">
+              <option value="">— Assign member —</option>
+              <option *ngFor="let u of memberUsers" [value]="u._id">{{ u.fullName }} ({{ u.email }})</option>
+            </select>
+            <button class="btn btn-sm" [disabled]="!assignUserId" (click)="assignMemberToTrainer()"><i class="fas fa-link"></i> Assign</button>
+          </div>
+          <div class="mini-user-list" *ngIf="selectedTrainer.assignedUsers?.length; else noAssigned">
+            <div class="mini-user-row" *ngFor="let u of selectedTrainer.assignedUsers">
+              <span>{{ u.fullName }} · {{ u.email }}</span>
+              <button class="icon-btn delete" (click)="unassignMember(u._id)" title="Unassign"><i class="fas fa-unlink"></i></button>
+            </div>
+          </div>
+          <ng-template #noAssigned><p class="empty-hint">No members assigned yet.</p></ng-template>
+        </div>
+
+        <div class="btn-row" style="margin-top:1.5rem" *ngIf="!editTrainerMode">
+          <button *ngIf="!selectedTrainer.isApproved" class="btn btn-sm" (click)="approveTrainer(selectedTrainer._id)"><i class="fas fa-check"></i> Approve</button>
+          <button *ngIf="selectedTrainer.isApproved" class="btn btn-sm btn-outline" (click)="rejectTrainer(selectedTrainer._id)"><i class="fas fa-ban"></i> Revoke approval</button>
+          <button class="btn btn-sm btn-outline" (click)="toggleTrainerAvailable(selectedTrainer)">
+            <i class="fas" [class.fa-toggle-on]="selectedTrainer.isAvailable" [class.fa-toggle-off]="!selectedTrainer.isAvailable"></i>
+            {{ selectedTrainer.isAvailable ? 'Mark unavailable' : 'Mark available' }}
+          </button>
+          <button class="icon-btn delete" (click)="deleteTrainer(selectedTrainer._id)" title="Delete"><i class="fas fa-trash"></i> Delete profile</button>
+        </div>
+      </div>
+      <ng-template #trainerLoading><p class="empty-hint">Loading trainer...</p></ng-template>
+    </div>
+
+    <!-- ── MACHINES ── -->
+    <div *ngIf="activeTab === 'machines'">
+      <div class="page-header">
+        <div><h2>Manage <span class="accent">Equipment</span></h2><p>{{ machines.length }} machines</p></div>
+        <button class="btn btn-sm" (click)="toggleAddMachineForm()"><i class="fas fa-plus"></i> Add Machine</button>
+      </div>
+
+      <form class="add-form" *ngIf="showAddMachine" [formGroup]="machineForm" (ngSubmit)="addMachine()">
+        <h4>Add New Machine</h4>
+        <div class="edit-grid">
+          <div class="fg">
+            <label>Name *</label>
+            <input formControlName="name" placeholder="Smith Machine" />
+            <span class="field-error" *ngIf="machineForm.controls.name.touched && machineForm.controls.name.invalid">
+              Name is required (3–100 characters).
+            </span>
+          </div>
+          <div class="fg">
+            <label>Category *</label>
+            <select formControlName="category">
+              <option *ngFor="let c of machineCategories" [value]="c">{{ c }}</option>
+            </select>
+            <span class="field-error" *ngIf="machineForm.controls.category.touched && machineForm.controls.category.invalid">
+              Category is required.
+            </span>
+          </div>
+          <div class="fg">
+            <label>Muscle Groups * (comma-separated)</label>
+            <input formControlName="muscleGroups" placeholder="chest, shoulders" />
+            <span class="field-error" *ngIf="machineForm.controls.muscleGroups.touched && machineForm.controls.muscleGroups.invalid">
+              At least one muscle group is required.
+            </span>
+            <p class="form-hint">Valid: {{ machineMuscleHint }}</p>
+          </div>
+          <div class="fg"><label>Brand</label><input formControlName="brand" placeholder="LifeFitness" /></div>
+          <div class="fg"><label>Location</label><input formControlName="location" placeholder="Floor 1 - Zone A" /></div>
+          <div class="fg">
+            <label>Status</label>
+            <select formControlName="status">
+              <option value="active">active</option>
+              <option value="maintenance">maintenance</option>
+              <option value="outOfService">outOfService</option>
+            </select>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn btn-sm" [disabled]="savingMachine || machineForm.invalid">
+            <i class="fas fa-plus"></i> {{ savingMachine ? 'Saving…' : 'Add' }}
+          </button>
+          <button type="button" class="btn btn-sm btn-outline" (click)="showAddMachine=false" [disabled]="savingMachine">Cancel</button>
+        </div>
+      </form>
+
+      <p *ngIf="loadingMachines && !machines.length" style="color:#888;margin-bottom:1rem">Loading machines…</p>
+      <p *ngIf="loadingMachines && machines.length" style="color:#888;margin-bottom:0.5rem;font-size:0.85rem">Refreshing list…</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Category</th><th>Muscles</th><th>Brand</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let m of machines">
+              <td><strong style="color:#fff">{{ m.name }}</strong></td>
+              <td class="capitalize">{{ m.category }}</td>
+              <td>{{ m.muscleGroupsLabel || '—' }}</td>
+              <td>{{ m.brand || '—' }}</td>
+              <td>{{ getMachineLocation(m) }}</td>
+              <td>
+                <span class="status-pill" [style.background]="getStatusColor(m.status) + '22'" [style.color]="getStatusColor(m.status)">
+                  <span class="status-dot" [style.background]="getStatusColor(m.status)"></span>
+                  {{ m.status }}
+                </span>
+              </td>
+              <td>
+                <button class="icon-btn view" (click)="toggleMachineStatus(m)" title="Toggle active/maintenance"><i class="fas fa-sync"></i></button>
+                <button class="icon-btn delete" (click)="deleteMachine(m._id)" title="Delete"><i class="fas fa-trash"></i></button>
+              </td>
+            </tr>
+            <tr *ngIf="!machines.length">
+              <td colspan="7" style="text-align:center;color:#666">No machines found. Add one above.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── SUBSCRIPTIONS ── -->
+    <div *ngIf="activeTab === 'subscriptions'">
+      <div class="page-header">
+        <div><h2>All <span class="accent">Subscriptions</span></h2><p>Revenue & plan overview</p></div>
+      </div>
+      <div class="stats-row-mini">
+        <div class="mini-stat"><span class="accent">{{ adminStats.totalActiveSubscriptions }}</span><p>Active</p></div>
+        <div class="mini-stat"><span style="color:#34d399">{{ totalRevenue }} EGP</span><p>Total Revenue</p></div>
+      </div>
+      <div class="section-card" style="margin-top:1.5rem">
+        <h4 class="card-title">All Subscriptions</h4>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>User</th><th>Plan</th><th>Price</th><th>Status</th><th>Expires</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let s of subscriptions">
+                <td>{{ getSubscriptionUserName(s) }}</td>
+                <td class="capitalize">{{ s.plan || '—' }}</td>
+                <td>{{ s.price }} {{ s.currency || 'EGP' }}</td>
+                <td><span class="status-badge" [class.success]="s.status === 'active'">{{ s.status }}</span></td>
+                <td>{{ formatDate(s.endDate) }}</td>
+              </tr>
+              <tr *ngIf="!subscriptions.length">
+                <td colspan="5" style="text-align:center;color:#666">No subscriptions found</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ATTENDANCE ── -->
+    <div *ngIf="activeTab === 'attendance'">
+      <div class="page-header">
+        <div>
+          <h2>Gym <span class="accent">Attendance</span></h2>
+          <p>Monitor member check-ins and gym capacity in real-time</p>
+        </div>
+        <div class="btn-row" style="margin-top:0">
+          <button type="button" class="btn btn-sm btn-outline" (click)="loadAttendance()" [disabled]="loadingAttendance">
+            <i class="fas fa-sync" [class.fa-spin]="loadingAttendance"></i> Refresh
+          </button>
+          <a routerLink="/qr-scanner" class="btn btn-sm"><i class="fas fa-qrcode"></i> Scan QR Check-in</a>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="stats-grid" style="margin-bottom: 2rem;">
+        <div class="stat-card blue">
+          <div class="stat-icon"><i class="fas fa-sign-in-alt"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ todayCheckInsCount }}</div>
+            <div class="stat-label">Today's Check-ins</div>
+          </div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon"><i class="fas fa-sign-out-alt"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ todayCheckOutsCount }}</div>
+            <div class="stat-label">Today's Check-outs</div>
+          </div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-icon"><i class="fas fa-heartbeat"></i></div>
+          <div class="stat-body">
+            <div class="stat-val">{{ presentMembers.length }}</div>
+            <div class="stat-label">Members Present Now</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="attendance-dashboard-layout" style="display: grid; grid-template-columns: 2fr 1.2fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+        <!-- Left: Present Members -->
+        <div class="section-card" style="margin: 0;">
+          <h4 class="card-title"><i class="fas fa-users accent"></i> Present Members ({{ presentMembers.length }})</h4>
+          <p *ngIf="loadingAttendance" style="color:#888;font-size:0.9rem">Loading present members…</p>
+          <div class="attendance-list" *ngIf="!loadingAttendance">
+            <div class="att-row" *ngFor="let a of presentMembers" style="padding: 8px 0; border-bottom: 1px solid #111; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+              <div class="att-user" style="font-weight: 500; color: #fff; display: flex; align-items: center; gap: 8px;">
+                <div class="mini-avatar" style="width: 26px; height: 26px; font-size: 0.7rem;">{{ getMemberInitial(a) }}</div>
+                <span>{{ getMemberName(a) }}</span>
+              </div>
+              <div class="att-time" style="color: #34d399; font-size: 0.8rem; margin-top: 4px; padding-left: 34px;">
+                <i class="fas fa-clock"></i> In: {{ formatTime(a.checkIn) }}
+              </div>
+            </div>
+            <p *ngIf="!presentMembers.length" style="color:#666;font-size:0.9rem;margin:1rem 0 0 0">No members currently in the gym.</p>
+          </div>
+        </div>
+
+        <!-- Right: Recent Activity -->
+        <div class="section-card" style="margin: 0;">
+          <h4 class="card-title"><i class="fas fa-history accent"></i> Recent Activity</h4>
+          <p *ngIf="loadingAttendance" style="color:#888;font-size:0.9rem">Loading activity…</p>
+          <div class="activity-timeline" *ngIf="!loadingAttendance">
+            <div class="activity-item" *ngFor="let a of recentAttendanceActivity" style="margin-bottom: 15px; position: relative; padding-left: 20px; border-left: 2px solid #222;">
+              <span style="position: absolute; left: -6px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: #DAFF6E;"></span>
+              <div style="font-size: 0.85rem; color: #aaa;">{{ formatDate(a.checkIn) }} · {{ formatTime(a.checkIn) }}</div>
+              <div style="font-size: 0.95rem; color: #fff; font-weight: 500;">{{ getMemberName(a) }}</div>
+              <div style="font-size: 0.82rem; color: #777;">
+                {{ a.checkOut ? 'Checked out (Duration: ' + formatAttendanceDuration(a) + ')' : 'Checked in' }} via <span class="method-badge" style="padding: 1px 6px; font-size: 0.68rem;">{{ getAttendanceMethod(a) }}</span>
+              </div>
+            </div>
+            <p *ngIf="!recentAttendanceActivity.length" style="color:#666;font-size:0.9rem;margin:1rem 0 0 0">No recent activity.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- History Table -->
+      <div class="section-card" style="margin: 0;">
+        <h4 class="card-title"><i class="fas fa-table accent"></i> Attendance History</h4>
+        <p *ngIf="loadingAttendance" style="color:#888;margin-bottom:1rem">Loading attendance records…</p>
+        <div class="table-wrap" *ngIf="!loadingAttendance">
+          <table>
+            <thead><tr><th>Member</th><th>Date</th><th>Check In</th><th>Check Out</th><th>Duration</th><th>Method</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let a of attendance">
+                <td><div class="user-cell"><div class="mini-avatar">{{ getMemberInitial(a) }}</div>{{ getMemberName(a) }}</div></td>
+                <td>{{ formatDate(a.checkIn) }}</td>
+                <td>{{ formatTime(a.checkIn) }}</td>
+                <td>{{ formatTime(a.checkOut) }}</td>
+                <td>{{ formatAttendanceDuration(a) }}</td>
+                <td><span class="method-badge">{{ getAttendanceMethod(a) }}</span></td>
+                <td style="color:#666;font-size:0.82rem;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" [title]="a.notes || ''">{{ a.notes || '—' }}</td>
+              </tr>
+              <tr *ngIf="!attendance.length">
+                <td colspan="7" style="text-align:center;color:#666">No attendance records yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+<app-footer></app-footer>

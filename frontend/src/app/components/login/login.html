@@ -1,0 +1,31 @@
+<app-navbar></app-navbar>
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">⚡ CORE-X</div>
+    <h2 class="auth-title">Welcome Back</h2>
+    <p class="auth-sub">Sign in to continue your journey</p>
+
+    <div class="error-msg" *ngIf="error"><i class="fas fa-exclamation-circle"></i> {{ error }}</div>
+
+    <div class="form-group">
+      <label>Email Address</label>
+      <input type="email" [(ngModel)]="email" placeholder="you@example.com" (keyup.enter)="onSubmit()" />
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" [(ngModel)]="password" placeholder="Your password" (keyup.enter)="onSubmit()" />
+    </div>
+
+    <div class="forgot-link">
+      <a routerLink="/forgot-password">Forgot password?</a>
+    </div>
+
+    <button class="btn btn-full" (click)="onSubmit()" [disabled]="loading">
+      <span *ngIf="!loading"><i class="fas fa-sign-in-alt"></i> Sign In</span>
+      <span *ngIf="loading"><i class="fas fa-spinner fa-spin"></i> Signing in...</span>
+    </button>
+
+    <p class="auth-footer">Don't have an account? <a routerLink="/register">Register now</a></p>
+  </div>
+</div>
+<app-footer></app-footer>

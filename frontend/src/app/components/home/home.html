@@ -1,0 +1,209 @@
+<app-navbar></app-navbar>
+
+<!-- ══ HERO ══════════════════════════════════════════════════════════ -->
+<section class="hero" *ngIf="!currentSection && !selectedPlan && !selectedTrainer">
+  <div class="hero-text">
+    <div class="hero-badge"><i class="fas fa-bolt"></i> Egypt's #1 Smart Gym</div>
+    <h1>Transform Your <span class="accent">Body.</span><br>Master Your <span class="accent">Goals.</span></h1>
+    <p>Track workouts, monitor progress, and train with Egypt's top coaches — all in one place.</p>
+    <div class="hero-btns">
+      <button class="btn" (click)="scrollTo('plans-section')">Get Started</button>
+      <button class="btn btn-ghost" (click)="scrollTo('exercises-section')">Browse Exercises</button>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><span>128+</span><p>Members</p></div>
+      <div class="stat"><span>7</span><p>Expert Trainers</p></div>
+      <div class="stat"><span>94%</span><p>Active Subs</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ EXERCISE BROWSER ══════════════════════════════════════════════ -->
+<section id="exercises-section" class="page-section" *ngIf="!currentSection && !selectedPlan && !selectedTrainer">
+  <h2 class="section-title">Exercise <span class="accent">Library</span></h2>
+  <p class="section-sub">Choose a muscle group to explore exercises</p>
+  <div class="muscle-grid">
+    <div class="muscle-card" *ngFor="let m of muscleGroups" (click)="selectMuscle(m.id)">
+      <div class="muscle-icon" [style.color]="m.color"><i class="fas" [class]="m.icon"></i></div>
+      <h3>{{ m.label }}</h3>
+      <p class="ex-count">{{ exercises.length > 0 ? getExerciseCount(m.id) : 0 }} exercises</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══ EXERCISE LIST (after muscle select) ═══════════════════════════ -->
+<div *ngIf="currentSection === 'exercises' && !selectedExercise" class="page-section">
+  <div class="section-header">
+    <button class="back-btn" (click)="backToMuscles()"><i class="fas fa-arrow-left"></i> Back</button>
+    <h2 class="section-title capitalize">{{ selectedMuscle }} <span class="accent">Exercises</span></h2>
+  </div>
+  <div class="exercise-grid">
+    <div class="exercise-card" *ngFor="let ex of filteredExercises" (click)="openExercise(ex)">
+      <div class="ex-level-badge" [style.background]="getLevelColor(ex.level)">{{ ex.level }}</div>
+      <div class="ex-body">
+        <h3>{{ ex.name }}</h3>
+        <p>{{ ex.description | slice:0:80 }}...</p>
+        <div class="ex-tags">
+          <span class="tag">{{ ex.category }}</span>
+          <span class="tag muscle-tag">{{ ex.muscle }}</span>
+        </div>
+      </div>
+      <div class="ex-arrow"><i class="fas fa-chevron-right"></i></div>
+    </div>
+  </div>
+  <div class="empty-state" *ngIf="filteredExercises.length === 0">
+    <i class="fas fa-dumbbell"></i>
+    <p>No exercises found for this muscle group.</p>
+  </div>
+</div>
+
+<!-- ══ EXERCISE DETAIL ════════════════════════════════════════════════ -->
+<div *ngIf="selectedExercise" class="page-section">
+  <button class="back-btn" (click)="closeExercise()"><i class="fas fa-arrow-left"></i> Back to {{ selectedMuscle }}</button>
+  <div class="detail-card">
+    <div class="detail-header">
+      <div>
+        <h2>{{ selectedExercise.name }}</h2>
+        <div class="detail-meta">
+          <span class="tag">{{ selectedExercise.muscle }}</span>
+          <span class="tag" [style.background]="getLevelColor(selectedExercise.level)">{{ selectedExercise.level }}</span>
+          <span class="tag">{{ selectedExercise.category }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="video-wrap" *ngIf="selectedExercise.video">
+      <iframe width="100%" height="400" [src]="selectedExercise.video | safe" frameborder="0" allowfullscreen></iframe>
+    </div>
+    <p class="detail-desc">{{ selectedExercise.description }}</p>
+    <div class="tips-section" *ngIf="selectedExercise.tips.length">
+      <h4><i class="fas fa-lightbulb"></i> Tips & Cues</h4>
+      <ul>
+        <li *ngFor="let tip of selectedExercise.tips">{{ tip }}</li>
+      </ul>
+    </div>
+    <div class="cta-box" *ngIf="!isLoggedIn">
+      <p>Log this exercise and track your progress</p>
+      <a routerLink="/subscribe" class="btn">Join CORE-X Free</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ WORKOUT PLANS SECTION ═════════════════════════════════════════ -->
+<section class="page-section" *ngIf="!currentSection && !selectedPlan && !selectedTrainer">
+  <h2 class="section-title">Workout <span class="accent">Plans</span></h2>
+  <p class="section-sub">Structured programs for every goal and level</p>
+  <div class="plans-grid">
+    <div class="plan-card" *ngFor="let plan of workoutPlans" (click)="openPlan(plan)">
+      <div class="plan-level" [style.color]="getLevelColor(plan.level)">{{ plan.level }}</div>
+      <h3>{{ plan.title }}</h3>
+      <p>{{ plan.description | slice:0:90 }}...</p>
+      <div class="plan-meta">
+        <span><i class="fas fa-calendar-week"></i> {{ plan.durationWeeks }} weeks</span>
+        <span><i class="fas fa-dumbbell"></i> {{ plan.daysPerWeek }}x/week</span>
+        <span><i class="fas fa-bullseye"></i> {{ getGoalLabel(plan.goal) }}</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PLAN DETAIL ════════════════════════════════════════════════════ -->
+<div *ngIf="selectedPlan" class="page-section">
+  <button class="back-btn" (click)="closePlan()"><i class="fas fa-arrow-left"></i> Back to Plans</button>
+  <div class="detail-card">
+    <h2>{{ selectedPlan.title }}</h2>
+    <div class="detail-meta">
+      <span class="tag" [style.background]="getLevelColor(selectedPlan.level)">{{ selectedPlan.level }}</span>
+      <span class="tag">{{ getGoalLabel(selectedPlan.goal) }}</span>
+    </div>
+    <p class="detail-desc">{{ selectedPlan.description }}</p>
+    <div class="plan-stats-grid">
+      <div class="pstat"><i class="fas fa-calendar-week accent"></i><span>{{ selectedPlan.durationWeeks }} Weeks</span></div>
+      <div class="pstat"><i class="fas fa-dumbbell accent"></i><span>{{ selectedPlan.daysPerWeek }} Days/Week</span></div>
+      <div class="pstat"><i class="fas fa-signal accent"></i><span class="capitalize">{{ selectedPlan.level }}</span></div>
+      <div class="pstat"><i class="fas fa-bullseye accent"></i><span>{{ getGoalLabel(selectedPlan.goal) }}</span></div>
+    </div>
+    <div class="cta-box" *ngIf="!isLoggedIn">
+      <p>Start this plan today — join CORE-X</p>
+      <a routerLink="/subscribe" class="btn">Get Started</a>
+    </div>
+    <div class="cta-box success" *ngIf="isLoggedIn">
+      <p>Ready to start this plan?</p>
+      <a routerLink="/dashboard" class="btn">Go to Dashboard</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TRAINERS SECTION ═══════════════════════════════════════════════ -->
+<section class="page-section trainers-section" *ngIf="!currentSection && !selectedPlan && !selectedTrainer">
+  <h2 class="section-title">Our <span class="accent">Trainers</span></h2>
+  <p class="section-sub">Work with Egypt's top certified fitness coaches</p>
+  <div class="trainers-grid">
+    <div class="trainer-card" *ngFor="let t of trainers" (click)="openTrainer(t)">
+      <div class="trainer-avatar">{{ getInitials(t.fullName) }}</div>
+      <div class="trainer-info">
+        <h3>{{ t.fullName }}</h3>
+        <div class="trainer-specs">
+          <span *ngFor="let s of t.specializations | slice:0:2" class="spec-tag">{{ formatSpec(s) }}</span>
+        </div>
+        <div class="trainer-stats">
+          <span><i class="fas fa-star" style="color:#DAFF6E"></i> {{ t.rating }}</span>
+          <span><i class="fas fa-users"></i> {{ t.totalClients }} clients</span>
+          <span><i class="fas fa-certificate" style="color:#DAFF6E"></i> {{ t.experience }} yrs</span>
+        </div>
+        <div class="trainer-price">{{ t.sessionPrice }} EGP <span>/session</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ TRAINER DETAIL ═════════════════════════════════════════════════ -->
+<div *ngIf="selectedTrainer" class="page-section">
+  <button class="back-btn" (click)="closeTrainer()"><i class="fas fa-arrow-left"></i> Back to Trainers</button>
+  <div class="detail-card trainer-detail">
+    <div class="trainer-detail-header">
+      <div class="trainer-avatar-lg">{{ getInitials(selectedTrainer.fullName) }}</div>
+      <div>
+        <h2>{{ selectedTrainer.fullName }}</h2>
+        <div class="trainer-certs">
+          <span *ngFor="let c of selectedTrainer.certificates" class="cert-tag">{{ c }}</span>
+        </div>
+        <div class="trainer-stats">
+          <span><i class="fas fa-star" style="color:#DAFF6E"></i> {{ selectedTrainer.rating }}/5</span>
+          <span><i class="fas fa-users"></i> {{ selectedTrainer.totalClients }} clients</span>
+          <span><i class="fas fa-briefcase"></i> {{ selectedTrainer.experience }} years exp.</span>
+        </div>
+      </div>
+    </div>
+    <p class="detail-desc">{{ selectedTrainer.bio }}</p>
+    <div class="spec-list">
+      <h4>Specializations</h4>
+      <div class="spec-tags-wrap">
+        <span *ngFor="let s of selectedTrainer.specializations" class="spec-tag-lg">{{ s }}</span>
+      </div>
+    </div>
+    <div class="price-cta">
+      <div class="price-badge">{{ selectedTrainer.sessionPrice }} EGP<span>/session</span></div>
+      <a *ngIf="!isLoggedIn" routerLink="/subscribe" class="btn">Book a Session</a>
+      <a *ngIf="isLoggedIn" routerLink="/dashboard" class="btn">Book a Session</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SUBSCRIPTION PLANS ═════════════════════════════════════════════ -->
+<section id="plans-section" class="page-section plans-section" *ngIf="!currentSection && !selectedPlan && !selectedTrainer">
+  <h2 class="section-title">Choose Your <span class="accent">Plan</span></h2>
+  <p class="section-sub">Flexible pricing for every fitness goal</p>
+  <div class="pricing-grid">
+    <div class="pricing-card" *ngFor="let p of pricingPlans" [class.featured]="p.badge">
+      <div class="pricing-badge" *ngIf="p.badge">{{ p.badge }}</div>
+      <h3 [style.color]="p.color">{{ p.name }}</h3>
+      <div class="pricing-price"><span class="price-amount">{{ p.price }}</span><span class="price-currency"> EGP</span><span class="price-period">{{ p.period }}</span></div>
+      <ul class="pricing-features">
+        <li *ngFor="let f of p.features"><i class="fas fa-check"></i> {{ f }}</li>
+      </ul>
+      <a routerLink="/subscribe" class="btn" [class.btn-outline-green]="!p.badge">Get Started</a>
+    </div>
+  </div>
+</section>
+
+<app-footer></app-footer>

@@ -1,0 +1,12 @@
+footer { background: #060606; border-top: 1px solid #181818; padding: 3rem 5% 1.5rem; }
+.footer-inner { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 3rem; margin-bottom: 2rem; }
+.footer-brand .logo { font-size: 1.5rem; font-weight: 800; color: #DAFF6E; margin-bottom: 0.8rem; }
+.footer-brand p { color: #666; font-size: 0.9rem; line-height: 1.6; }
+.footer-links h4, .footer-contact h4 { color: #DAFF6E; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+.footer-links a { display: block; color: #888; text-decoration: none; font-size: 0.9rem; margin-bottom: 0.5rem; transition: color 0.3s; }
+.footer-links a:hover { color: #DAFF6E; }
+.footer-contact p { color: #888; font-size: 0.9rem; margin-bottom: 0.5rem; }
+.footer-contact i { color: #DAFF6E; margin-right: 8px; }
+.footer-bottom { border-top: 1px solid #111; padding-top: 1.5rem; text-align: center; }
+.footer-bottom p { color: #444; font-size: 0.85rem; }
+@media(max-width:768px) { .footer-inner { grid-template-columns: 1fr; gap: 2rem; } }
