@@ -1,36 +1,39 @@
 const WorkoutPlan   = require('../model/workoutPlan.model');
 const Exercise      = require('../../exercise/model/exercise.model');
 const ApiFeatures   = require('../../../utils/apiFeatures');
-const { GOALS, LEVELS, PLAN_CREATED_BY } = require('../../../utils/constants');
 const ApiError      = require('../../../utils/ApiError');
 const logger        = require('../../../utils/logger');
 
 // ── Plan blueprints: goal → training parameters ───────────────────────────
 const BLUEPRINT = {
-  [GOALS.WEIGHT_LOSS]:  { sets: 3, reps: 15, restSeconds: 45  },
-  [GOALS.MUSCLE_GAIN]:  { sets: 4, reps: 8,  restSeconds: 90  },
-  [GOALS.FITNESS]:      { sets: 3, reps: 12, restSeconds: 60  },
+  'weightLoss':      { sets: 3, reps: '15', restSeconds: 45  },
+  'muscleGain':      { sets: 4, reps: '8',  restSeconds: 90  },
+  'endurance':       { sets: 3, reps: '12', restSeconds: 60  },
+  'flexibility':     { sets: 2, reps: '12', restSeconds: 60  },
+  'generalFitness':  { sets: 3, reps: '12', restSeconds: 60  },
+  'rehabilitation':  { sets: 2, reps: '10', restSeconds: 90  },
+  'sportPerformance': { sets: 4, reps: '6-8', restSeconds: 90 },
 };
 
 const DAYS_BY_LEVEL = {
-  [LEVELS.BEGINNER]:     ['Monday', 'Wednesday', 'Friday'],
-  [LEVELS.INTERMEDIATE]: ['Monday', 'Tuesday', 'Thursday', 'Friday'],
-  [LEVELS.ADVANCED]:     ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  'beginner':     ['monday', 'wednesday', 'friday'],
+  'intermediate': ['monday', 'tuesday', 'thursday', 'friday'],
+  'advanced':     ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'],
 };
 
 const MUSCLE_SPLIT = {
-  [LEVELS.BEGINNER]: [
+  'beginner': [
     ['chest', 'triceps'],
     ['back', 'biceps'],
     ['legs', 'shoulders'],
   ],
-  [LEVELS.INTERMEDIATE]: [
+  'intermediate': [
     ['chest', 'triceps'],
     ['back', 'biceps'],
     ['legs'],
     ['shoulders', 'core'],
   ],
-  [LEVELS.ADVANCED]: [
+  'advanced': [
     ['chest'],
     ['back'],
     ['legs'],
@@ -41,9 +44,9 @@ const MUSCLE_SPLIT = {
 };
 
 const DURATION_WEEKS = {
-  [LEVELS.BEGINNER]:     4,
-  [LEVELS.INTERMEDIATE]: 8,
-  [LEVELS.ADVANCED]:     12,
+  'beginner':     4,
+  'intermediate': 8,
+  'advanced':     12,
 };
 
 /**
@@ -71,10 +74,13 @@ const generatePlan = async (userId, { goal, level }) => {
         .select('_id name muscle');
 
       return {
-        day,
-        focus,
-        exercises: exercises.map((ex) => ({
+        dayNumber: idx + 1,
+        dayName: day,
+        muscleGroups: muscles,
+        isRestDay: false,
+        exercises: exercises.map((ex, order) => ({
           exercise:    ex._id,
+          order:       order + 1,
           sets:        blueprint.sets,
           reps:        blueprint.reps,
           restSeconds: blueprint.restSeconds,
@@ -83,7 +89,8 @@ const generatePlan = async (userId, { goal, level }) => {
     })
   );
 
-  const title = `${goal.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())} — ${level}`;
+  const goalText = goal.replace(/([A-Z])/g, ' $1').trim().replace(/\b\w/g, (c) => c.toUpperCase());
+  const title = `${goalText} — ${level.charAt(0).toUpperCase() + level.slice(1)}`;
 
   const plan = await WorkoutPlan.create({
     user:          userId,
@@ -91,8 +98,10 @@ const generatePlan = async (userId, { goal, level }) => {
     goal,
     level,
     durationWeeks: DURATION_WEEKS[level],
+    daysPerWeek:   days.length,
     days:          workoutDays,
-    createdBy:     PLAN_CREATED_BY.AUTO,
+    createdBy:     userId,
+    status:        'active',
   });
 
   logger.info(`Workout plan auto-generated for user ${userId}: "${title}"`);

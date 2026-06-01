@@ -3,6 +3,7 @@ const Joi = require('joi');
 const createExerciseSchema = Joi.object({
   name:        Joi.string().min(2).max(100).trim().required(),
   muscle:      Joi.string().trim().required(),
+  trainerId:   Joi.string().hex().length(24).allow(null, '').optional(),
   machine:     Joi.string().hex().length(24).allow(null, '').optional(),
   description: Joi.string().max(2000).allow('').optional(),
   tips:        Joi.array().items(Joi.string().trim()).max(20).optional(),

@@ -121,15 +121,16 @@ export class SubscriptionApiService {
   }
   /**
    * POST /api/v1/subscriptions
-   * Backend expects: { plan: 'basic'|'standard'|'premium', durationMonths: 1|3|6|12 }
-   * Backend computes startDate, endDate, price, features automatically.
+   * Backend expects an object with plan and durationMonths. We accept extra fields (e.g. trainerId)
+   * so the frontend can pass an optional trainer association when creating a subscription.
    */
-  create(data: { plan: string; durationMonths: number }): Observable<ApiResponse<any>> {
+  create(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${API}/subscriptions`, data);
   }
   /** GET /api/v1/subscriptions/my — returns active subscription or null */
-  getMy(): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>(`${API}/subscriptions/my`);
+  getMy(bustCache = false): Observable<ApiResponse<any>> {
+    const params = bustCache ? { _t: String(Date.now()) } : undefined;
+    return this.http.get<ApiResponse<any>>(`${API}/subscriptions/my`, { params });
   }
   getById(id: string): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${API}/subscriptions/${id}`);
@@ -150,13 +151,17 @@ export class SubscriptionApiService {
 @Injectable({ providedIn: 'root' })
 export class PaymentApiService {
   private http = inject(HttpClient);
-  /** POST /api/v1/payments/initiate */
-  initiate(subscriptionId: string): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${API}/payments/initiate`, { subscriptionId });
+  /** POST /api/v1/payments/initiate
+   * Accepts `subscriptionId` and optional `data` object with extra fields (e.g. userPhone, userFullName).
+   */
+  initiate(subscriptionId: string, data?: any): Observable<ApiResponse<any>> {
+    const payload = { subscriptionId, ...(data || {}) };
+    return this.http.post<ApiResponse<any>>(`${API}/payments/initiate`, payload);
   }
   /** GET /api/v1/payments/my */
-  getMy(): Observable<any[]> {
-    return this.http.get<ApiResponse<any>>(`${API}/payments/my`).pipe(
+  getMy(bustCache = false): Observable<any[]> {
+    const params = bustCache ? { _t: String(Date.now()) } : undefined;
+    return this.http.get<ApiResponse<any>>(`${API}/payments/my`, { params }).pipe(
       map(extractItems)
     );
   }

@@ -2,6 +2,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 const config = require('../config/paymob');
 const ApiError = require('../utils/ApiError');
+const logger = require('../utils/logger');
 
 /**
  * Step 1 – Authenticate and get a short-lived auth token.
@@ -62,11 +63,39 @@ const buildIframeUrl = (paymentKey) =>
   `${config.baseUrl}/acceptance/iframes/${config.iframeId}?payment_token=${paymentKey}`;
 
 /**
+ * Convert flat query parameters to nested object structure.
+ * E.g., { 'source_data.pan': '4242', 'source_data.type': 'card' }
+ *    => { source_data: { pan: '4242', type: 'card' } }
+ */
+const flattenToNested = (flatObj) => {
+  const result = {};
+  for (const [key, value] of Object.entries(flatObj)) {
+    const parts = key.split('.');
+    let current = result;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!current[parts[i]]) current[parts[i]] = {};
+      current = current[parts[i]];
+    }
+    current[parts[parts.length - 1]] = value;
+  }
+  return result;
+};
+
+/**
  * Verify HMAC signature for incoming Paymob webhooks.
  * @param {object} transactionObj  The transaction object from Paymob callback.
  * @param {string} receivedHmac    The hmac query parameter sent by Paymob.
  */
 const verifyHmac = (transactionObj, receivedHmac) => {
+  // If flat query params use dotted keys, convert to nested structure
+  const isFlat = Object.keys(transactionObj).some((key) => key.includes('.'));
+  const obj = isFlat ? flattenToNested(transactionObj) : transactionObj;
+
+  logger.debug(`HMAC verification: isFlat=${isFlat}`, {
+    receivedHmac: receivedHmac ? `${receivedHmac.substring(0, 16)}...` : 'MISSING',
+    objKeys: Object.keys(obj),
+  });
+
   const keys = [
     'amount_cents', 'created_at', 'currency', 'error_occured',
     'has_parent_transaction', 'id', 'integration_id', 'is_3d_secure',
@@ -79,16 +108,26 @@ const verifyHmac = (transactionObj, receivedHmac) => {
   const concatenated = keys
     .map((key) => {
       const parts = key.split('.');
-      return parts.reduce((obj, k) => (obj ? obj[k] : ''), transactionObj) ?? '';
+      const value = parts.reduce((o, k) => (o ? o[k] : ''), obj) ?? '';
+      logger.debug(`HMAC key '${key}' => '${value}'`);
+      return value;
     })
     .join('');
+
+  logger.debug(`HMAC concatenated (first 100 chars): ${concatenated.substring(0, 100)}...`);
 
   const computed = crypto
     .createHmac('sha512', config.hmacSecret)
     .update(concatenated)
     .digest('hex');
 
-  return computed === receivedHmac;
+  logger.debug(`Computed HMAC: ${computed.substring(0, 16)}...`);
+  logger.debug(`Received HMAC: ${receivedHmac ? receivedHmac.substring(0, 16) + '...' : 'MISSING'}`);
+
+  const isValid = computed === receivedHmac;
+  logger.info(`HMAC verification result: ${isValid ? 'VALID ✓' : 'INVALID ✗'}`);
+
+  return isValid;
 };
 
 module.exports = { getAuthToken, createOrder, getPaymentKey, buildIframeUrl, verifyHmac };

@@ -26,12 +26,37 @@
       </div>
       <div class="stats-row">
         <div class="stat-card blue"><div class="stat-icon"><i class="fas fa-users"></i></div><div><div class="stat-val">{{ userCount }}</div><div class="stat-label">Total Clients</div></div></div>
-        <div class="stat-card yellow"><div class="stat-icon"><i class="fas fa-dumbbell"></i></div><div><div class="stat-val">{{ workoutPlans.length }}</div><div class="stat-label">Plans Created</div></div></div>
-        <div class="stat-card green"><div class="stat-icon"><i class="fas fa-running"></i></div><div><div class="stat-val">{{ exercises.length }}</div><div class="stat-label">Exercises</div></div></div>
+        <div class="stat-card yellow"><div class="stat-icon"><i class="fas fa-dumbbell"></i></div><div><div class="stat-val">{{ trainerPlanCount }}</div><div class="stat-label">Plans Created</div></div></div>
+        <div class="stat-card green"><div class="stat-icon"><i class="fas fa-running"></i></div><div><div class="stat-val">{{ trainerExerciseCount }}</div><div class="stat-label">Exercises</div></div></div>
         <div class="stat-card orange"><div class="stat-icon"><i class="fas fa-star"></i></div><div><div class="stat-val">{{ trainerProfile.rating || 4.9 }}/5</div><div class="stat-label">Rating</div></div></div>
       </div>
 
       <div class="overview-grid">
+        <div class="section-card">
+          <h4 class="card-title"><i class="fas fa-user-tie accent"></i> Trainer Summary</h4>
+          <div class="trainer-summary-grid">
+            <div class="td-card"><div class="td-label">Experience</div><div class="td-val accent">{{ trainerProfile.experience }} years</div></div>
+            <div class="td-card"><div class="td-label">Session Price</div><div class="td-val accent">{{ trainerProfile.sessionPrice }} EGP</div></div>
+            <div class="td-card"><div class="td-label">Specializations</div><div class="td-val accent">{{ trainerProfile.specializations?.join(', ') || '—' }}</div></div>
+            <div class="td-card"><div class="td-label">Availability</div><div class="td-val accent">{{ trainerProfile.availability?.length || 0 }} days</div></div>
+          </div>
+          <div class="availability-summary">
+            <h5>Availability</h5>
+            <div *ngIf="trainerProfile.availability?.length; else noAvailability">
+              <div class="availability-list">
+                <div class="availability-item" *ngFor="let day of trainerProfile.availability">
+                  <div class="availability-day">{{ day.day | titlecase }}</div>
+                  <div class="availability-slots">
+                    <span *ngFor="let slot of day.slots">{{ slot.startTime }} - {{ slot.endTime }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <ng-template #noAvailability>
+              <div class="availability-empty">No availability set. Click <strong>Edit Profile</strong> to add your schedule.</div>
+            </ng-template>
+          </div>
+        </div>
         <div class="section-card">
           <h4 class="card-title"><i class="fas fa-users accent"></i> My Clients</h4>
           <div class="client-mini-list">
@@ -45,7 +70,7 @@
         <div class="section-card">
           <h4 class="card-title"><i class="fas fa-dumbbell accent"></i> Recent Plans</h4>
           <div class="plan-mini-list">
-            <div class="plan-mini" *ngFor="let p of workoutPlans.slice(0,4)">
+            <div class="plan-mini" *ngFor="let p of trainerSpecificPlans.slice(0,4)">
               <div class="p-level" [style.color]="getLevelColor(p.level)">{{ p.level }}</div>
               <div class="p-title">{{ p.title }}</div>
               <div class="p-meta">{{ p.durationWeeks }}w · {{ p.daysPerWeek }}x/week</div>
@@ -160,7 +185,7 @@
     <!-- PLANS -->
     <div *ngIf="activeTab==='plans'">
       <div class="page-header">
-        <div><h2>Workout <span class="accent">Plans</span></h2><p>{{ workoutPlans.length }} plans</p></div>
+        <div><h2>Workout <span class="accent">Plans</span></h2><p>{{ trainerPlanCount }} plans</p></div>
         <button class="btn btn-sm" (click)="showAddPlan=!showAddPlan"><i class="fas fa-plus"></i> Create Plan</button>
       </div>
 
@@ -171,10 +196,13 @@
           <div class="fg">
             <label>Goal</label>
             <select [(ngModel)]="newPlan.goal">
-              <option value="muscleGain">Muscle Gain</option>
               <option value="weightLoss">Weight Loss</option>
+              <option value="muscleGain">Muscle Gain</option>
               <option value="endurance">Endurance</option>
+              <option value="flexibility">Flexibility</option>
               <option value="generalFitness">General Fitness</option>
+              <option value="rehabilitation">Rehabilitation</option>
+              <option value="sportPerformance">Sport Performance</option>
             </select>
           </div>
           <div class="fg">
@@ -196,7 +224,7 @@
       </div>
 
       <div class="plans-grid">
-        <div class="plan-card" *ngFor="let p of workoutPlans">
+        <div class="plan-card" *ngFor="let p of trainerSpecificPlans">
           <div class="plan-level" [style.color]="getLevelColor(p.level)">{{ p.level }}</div>
           <h3>{{ p.title }}</h3>
           <p>{{ p.description }}</p>
@@ -219,27 +247,89 @@
           <p class="profile-email">{{ auth.currentUser?.email }}</p>
           <span class="trainer-badge">Certified Trainer</span>
         </div>
+        <div style="margin-left:auto">
+          <button class="btn btn-sm" (click)="editProfile ? (editProfile=false) : enterEditProfile()">{{ editProfile ? 'Cancel' : 'Edit Profile' }}</button>
+        </div>
       </div>
-      <div *ngIf="trainerProfile" class="trainer-details-grid">
+
+      <div *ngIf="trainerProfile && !editProfile" class="trainer-details-grid">
         <div class="td-card"><div class="td-label">Experience</div><div class="td-val accent">{{ trainerProfile.experience }} years</div></div>
         <div class="td-card"><div class="td-label">Session Price</div><div class="td-val accent">{{ trainerProfile.sessionPrice }} EGP</div></div>
         <div class="td-card"><div class="td-label">Rating</div><div class="td-val accent">{{ trainerProfile.rating }}/5 ⭐</div></div>
         <div class="td-card"><div class="td-label">Total Clients</div><div class="td-val accent">{{ trainerProfile.totalClients }}</div></div>
       </div>
-      <div class="section-card" *ngIf="trainerProfile">
+
+      <div *ngIf="trainerProfile && editProfile" class="section-card">
+        <h4 class="card-title">Edit Profile</h4>
+        <div class="edit-grid">
+          <div class="fg"><label>Experience (years)</label><input type="number" [(ngModel)]="trainerProfile.experience" /></div>
+          <div class="fg"><label>Session Price</label><input type="number" [(ngModel)]="trainerProfile.sessionPrice" /></div>
+          <div class="fg" style="grid-column:1/-1"><label>Bio</label><textarea [(ngModel)]="trainerProfile.bio"></textarea></div>
+          <div class="fg" style="grid-column:1/-1"><label>Specializations</label>
+            <div class="spec-grid">
+              <label *ngFor="let spec of allSpecializations" class="spec-checkbox">
+                <input type="checkbox" [checked]="trainerProfile.specializations?.includes(spec.value)" (change)="toggleSpecialization(spec.value, $event.target.checked)" />
+                {{ spec.label }}
+              </label>
+            </div>
+          </div>
+          <div class="fg" style="grid-column:1/-1">
+            <label>Currency</label>
+            <select [(ngModel)]="trainerProfile.currency">
+              <option value="EGP">EGP</option>
+              <option value="USD">USD</option>
+            </select>
+          </div>
+
+          <div class="section-sub" style="grid-column:1/-1">Certificates</div>
+          <div *ngFor="let c of trainerProfile.certificates; let i = index" style="grid-column:1/-1;display:flex;gap:8px;align-items:center">
+            <input placeholder="Name" [(ngModel)]="trainerProfile.certificates[i].name" />
+            <input placeholder="Issued By" [(ngModel)]="trainerProfile.certificates[i].issuedBy" />
+            <input type="date" [(ngModel)]="trainerProfile.certificates[i].issuedAt" />
+            <button class="btn btn-sm btn-outline" (click)="removeCertificate(i)">Remove</button>
+          </div>
+          <div style="grid-column:1/-1"><button class="btn btn-sm" (click)="addCertificate()">Add Certificate</button></div>
+
+          <div class="section-sub" style="grid-column:1/-1">Availability</div>
+          <div *ngFor="let d of trainerProfile.availability; let di = index" style="grid-column:1/-1;border:1px solid #eee;padding:8px;margin-bottom:8px">
+            <div style="display:flex;gap:8px;align-items:center">
+              <label>Day</label>
+              <select [(ngModel)]="trainerProfile.availability[di].day">
+                <option *ngFor="let day of daysOfWeek" [value]="day">{{ day }}</option>
+              </select>
+              <button class="btn btn-sm btn-outline" (click)="removeAvailabilityDay(di)">Remove Day</button>
+            </div>
+            <div *ngFor="let s of d.slots; let si = index" style="display:flex;gap:8px;align-items:center;margin-top:8px">
+              <label>Slot</label>
+              <input type="time" [(ngModel)]="trainerProfile.availability[di].slots[si].startTime" />
+              <input type="time" [(ngModel)]="trainerProfile.availability[di].slots[si].endTime" />
+              <button class="btn btn-sm btn-outline" (click)="removeSlot(di, si)">Remove Slot</button>
+            </div>
+            <div style="margin-top:8px"><button class="btn btn-sm" (click)="addSlot(di)">Add Slot</button></div>
+          </div>
+          <div style="grid-column:1/-1"><button class="btn btn-sm" (click)="addAvailabilityDay()">Add Availability Day</button></div>
+
+          <div class="btn-row" style="grid-column:1/-1">
+            <button class="btn btn-sm" (click)="saveTrainerProfile()">Save</button>
+            <button class="btn btn-sm btn-outline" (click)="editProfile=false">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="trainerProfile && !editProfile" class="section-card">
         <h4 class="card-title">Bio</h4>
         <p style="color:#aaa;line-height:1.7">{{ trainerProfile.bio }}</p>
       </div>
-      <div class="section-card" *ngIf="trainerProfile">
+      <div *ngIf="trainerProfile && !editProfile" class="section-card">
         <h4 class="card-title">Specializations</h4>
         <div class="spec-tags">
           <span *ngFor="let s of trainerProfile.specializations" class="spec-chip">{{ s }}</span>
         </div>
       </div>
-      <div class="section-card" *ngIf="trainerProfile">
+      <div *ngIf="trainerProfile && !editProfile" class="section-card">
         <h4 class="card-title">Certificates</h4>
         <div class="cert-list">
-          <span *ngFor="let c of trainerProfile.certificates" class="cert-chip">{{ c }}</span>
+          <span *ngFor="let c of trainerProfile.certificates" class="cert-chip">{{ c.name || c }}</span>
         </div>
       </div>
     </div>

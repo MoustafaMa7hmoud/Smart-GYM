@@ -5,6 +5,8 @@ const { HTTP }        = require('../../../utils/constants');
 
 const createExercise = catchAsync(async (req, res) => {
   const data = { ...req.body };
+  // Handle trainerId from FormData or JSON body
+  if (req.body.trainerId) data.trainerId = req.body.trainerId;
   if (typeof data.tips     === 'string') data.tips     = JSON.parse(data.tips);
   if (typeof data.mistakes === 'string') data.mistakes = JSON.parse(data.mistakes);
   const exercise = await exerciseService.createExercise(data, req.files);
@@ -23,8 +25,12 @@ const getExerciseById = catchAsync(async (req, res) => {
 
 const updateExercise = catchAsync(async (req, res) => {
   const data = { ...req.body };
+  // Do NOT allow changing trainerId through updates
+  delete data.trainerId;
   if (typeof data.tips     === 'string') data.tips     = JSON.parse(data.tips);
   if (typeof data.mistakes === 'string') data.mistakes = JSON.parse(data.mistakes);
+  // Verify ownership before updating
+  await exerciseService.verifyExerciseOwnership(req.params.id, req.user._id, req.user.role);
   const exercise = await exerciseService.updateExercise(req.params.id, data, req.files);
   res.status(HTTP.OK).json(new ApiResponse(HTTP.OK, exercise, 'Exercise updated.'));
 });

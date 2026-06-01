@@ -76,8 +76,8 @@ app.use('/api/v1/machines',  uploadLimiter);
 // ── 4. Body parsers ───────────────────────────────────────────────────────
 // Raw body MUST be registered before express.json() for Paymob webhook
 app.use(
-  '/api/v1/payments/webhook',
-  express.raw({ type: ['application/json', 'text/plain'] })
+  ['/api/v1/payments/webhook', '/api/paymob/webhook'],
+  express.raw({ type: '*/*' })
 );
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -110,10 +110,16 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// ── 8. API routes ─────────────────────────────────────────────────────────
+// ── 8. Paymob webhook (alternative route) ─────────────────────────────────
+// Some Paymob setups use /api/paymob/webhook, so we support both routes
+const paymobWebhookCtrl = require('./modules/payment/controller/payment.controller');
+app.get('/api/paymob/webhook', paymobWebhookCtrl.webhook);
+app.post('/api/paymob/webhook', paymobWebhookCtrl.webhook);
+
+// ── 9. API routes ─────────────────────────────────────────────────────────
 app.use('/api/v1', routes);
 
-// ── 9. 404 handler ────────────────────────────────────────────────────────
+// ── 10. 404 handler ───────────────────────────────────────────────────────
 app.use((req, _res, next) => {
   next(new ApiError(404, `Cannot ${req.method} ${req.originalUrl}`));
 });

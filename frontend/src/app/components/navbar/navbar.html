@@ -3,6 +3,7 @@
 
   <nav class="nav-links" [class.open]="menuOpen">
     <a routerLink="/" (click)="menuOpen=false">Home</a>
+    <a routerLink="/trainers" (click)="menuOpen=false">Trainers</a>
     <a *ngIf="!user" routerLink="/login" (click)="menuOpen=false">Login</a>
     <a *ngIf="!user" routerLink="/register" class="nav-cta" (click)="menuOpen=false">Join Now</a>
     <a *ngIf="user" [routerLink]="getDashboardRoute()" (click)="menuOpen=false">

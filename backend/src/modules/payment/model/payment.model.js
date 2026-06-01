@@ -10,7 +10,7 @@ const paymentSchema = new mongoose.Schema(
     },
     subscription: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "UserSubscription",
+      ref: "Subscription",
     },
     amount: {
       type: Number,
@@ -55,6 +55,28 @@ const paymentSchema = new mongoose.Schema(
       },
     },
     refundReason: { type: String, maxlength: [300, "Refund reason too long"], trim: true },
+    iframeUrl: {
+      type: String,
+      trim: true,
+    },
+    paymobOrderId: {
+      type: String,
+      trim: true,
+      sparse: true,
+      index: true,
+    },
+    paymobTransactionId: {
+      type: String,
+      trim: true,
+      sparse: true,
+    },
+    webhookPayload: {
+      type: mongoose.Schema.Types.Mixed,
+    },
+    amountEGP: {
+      type: Number,
+      min: [0, 'Amount in EGP must be non-negative'],
+    },
     gateway: {
       name: { type: String, trim: true },       // e.g. 'stripe', 'paymob'
       chargeId: { type: String, trim: true },

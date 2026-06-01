@@ -5,6 +5,9 @@ const { ROLES }   = require('../../../utils/constants');
 const ApiError    = require('../../../utils/ApiError');
 const logger      = require('../../../utils/logger');
 
+// Fields to populate for the linked User document
+const USER_FIELDS = 'fullName email avatar phone role';
+
 const createTrainerProfile = async (userId, data) => {
   const existing = await Trainer.findOne({ user: userId });
   if (existing) throw new ApiError(409, 'Trainer profile already exists for this user.');
@@ -19,12 +22,14 @@ const createTrainerProfile = async (userId, data) => {
 
   const trainer = await Trainer.create({ user: userId, ...data });
   logger.info(`Trainer profile created for user: ${userId}`);
-  return trainer.populate('user', 'name email avatar');
+  return trainer.populate('user', USER_FIELDS);
 };
 
 const getAllTrainers = async (queryString) => {
   const features = new ApiFeatures(
-    Trainer.find().populate('user', 'name email avatar phone'),
+    Trainer.find()
+      .populate('user',          USER_FIELDS)
+      .populate('assignedUsers', 'fullName email role'),
     queryString
   )
     .filter()
@@ -41,8 +46,8 @@ const getAllTrainers = async (queryString) => {
 
 const getTrainerById = async (id) => {
   const trainer = await Trainer.findById(id)
-    .populate('user', 'name email avatar phone')
-    .populate('assignedUsers', 'name email avatar');
+    .populate('user',          USER_FIELDS)
+    .populate('assignedUsers', 'fullName email role avatar');
   if (!trainer) throw new ApiError(404, 'Trainer not found.');
   return trainer;
 };
@@ -50,9 +55,20 @@ const getTrainerById = async (id) => {
 const updateTrainer = async (id, data) => {
   const trainer = await Trainer.findByIdAndUpdate(id, data, {
     new: true, runValidators: true,
-  }).populate('user', 'name email avatar');
+  }).populate('user', USER_FIELDS);
   if (!trainer) throw new ApiError(404, 'Trainer not found.');
   logger.info(`Trainer updated: ${id}`);
+  return trainer;
+};
+
+const approveTrainer = async (id) => {
+  const trainer = await Trainer.findByIdAndUpdate(
+    id,
+    { isApproved: true },
+    { new: true, runValidators: true }
+  ).populate('user', USER_FIELDS);
+  if (!trainer) throw new ApiError(404, 'Trainer not found.');
+  logger.info(`Trainer approved: ${id}`);
   return trainer;
 };
 
@@ -64,7 +80,7 @@ const assignUserToTrainer = async (trainerId, userId) => {
   if (!trainer) throw new ApiError(404, 'Trainer not found.');
   if (!user)    throw new ApiError(404, 'User not found.');
 
-  // Unassign from previous trainer
+  // Unassign from previous trainer first
   if (user.assignedTrainer && String(user.assignedTrainer) !== trainerId) {
     await Trainer.findByIdAndUpdate(user.assignedTrainer, {
       $pull: { assignedUsers: userId },
@@ -72,13 +88,14 @@ const assignUserToTrainer = async (trainerId, userId) => {
   }
 
   trainer.assignedUsers.addToSet(userId);
+  trainer.totalClients = trainer.assignedUsers.length;
   await trainer.save();
 
   user.assignedTrainer = trainerId;
   await user.save();
 
   logger.info(`User ${userId} assigned to trainer ${trainerId}`);
-  return trainer.populate('assignedUsers', 'name email');
+  return trainer.populate('assignedUsers', 'fullName email role');
 };
 
 const unassignUserFromTrainer = async (trainerId, userId) => {
@@ -88,6 +105,10 @@ const unassignUserFromTrainer = async (trainerId, userId) => {
     { new: true }
   );
   if (!trainer) throw new ApiError(404, 'Trainer not found.');
+
+  // Update totalClients count
+  trainer.totalClients = trainer.assignedUsers.length;
+  await trainer.save();
 
   await User.findByIdAndUpdate(userId, { assignedTrainer: null });
   logger.info(`User ${userId} unassigned from trainer ${trainerId}`);
@@ -106,6 +127,7 @@ module.exports = {
   getAllTrainers,
   getTrainerById,
   updateTrainer,
+  approveTrainer,
   assignUserToTrainer,
   unassignUserFromTrainer,
   deleteTrainer,

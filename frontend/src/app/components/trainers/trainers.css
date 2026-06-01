@@ -1,0 +1,19 @@
+.page-wrap { padding: 2.5rem; min-height: calc(100vh - 65px); background: #000; }
+.page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.5rem; }
+.page-header h2 { color:#fff; font-size:1.6rem }
+.page-header p { color:#666; margin-top:6px }
+.trainers-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap:1rem; }
+.trainer-card { background:#080808; border:1px solid #151515; border-radius:14px; padding:1rem; display:flex; flex-direction:column; gap:0.8rem }
+.tc-top { display:flex; gap:12px; align-items:center }
+.tc-avatar { width:48px; height:48px; border-radius:50%; background:rgba(100,180,255,0.12); color:#64b4ff; display:flex; align-items:center; justify-content:center; font-weight:700 }
+.tc-info h3 { color:#fff; margin:0; font-size:1rem }
+.tc-meta { color:#aaa; font-size:0.82rem }
+.tc-bio { color:#ccc; font-size:0.88rem; margin:0 }
+.tc-meta-row { display:flex; gap:12px; color:#aaa; font-size:0.82rem; margin-top:6px }
+.tc-meta-row .rating { color:#DAFF6E }
+.tc-meta-row .avail { color:#ccc }
+.tc-foot { display:flex; align-items:center; justify-content:space-between; gap:8px }
+.price { color:#DAFF6E; font-weight:700 }
+.actions { display:flex; gap:8px }
+.loading { color:#aaa }
+.error { color:#ff6b6b }

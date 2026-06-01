@@ -1,0 +1,35 @@
+<app-navbar></app-navbar>
+
+<div class="page-wrap">
+  <div class="page-header">
+    <div><h2>Choose a <span class="accent">Trainer</span></h2><p>Browse certified trainers and subscribe to work with your preferred coach.</p></div>
+  </div>
+
+  <div class="trainers-grid">
+    <div *ngIf="loading" class="loading">Loading trainers…</div>
+    <div *ngIf="error" class="error">{{ error }}</div>
+    <div *ngIf="!loading && trainers.length === 0" class="empty">No trainers available right now.</div>
+    <div class="trainer-card" *ngFor="let t of trainers">
+      <div class="tc-top">
+        <div class="tc-avatar">{{ (t.displayName || t._id || 'T')[0] }}</div>
+        <div class="tc-info">
+          <h3>{{ t.displayName || 'Coach' }}</h3>
+          <div class="tc-meta">{{ t.specializations?.join(', ') || 'General Fitness' }}</div>
+        </div>
+      </div>
+      <p class="tc-bio">{{ t.bio || 'No bio provided.' }}</p>
+      <div class="tc-meta-row">
+        <div class="rating">Rating: {{ t.rating || 0 }}/5</div>
+        <div class="avail">{{ t.availability?.length || 0 }} days available</div>
+      </div>
+      <div class="tc-foot">
+        <div class="price">{{ t.sessionPrice || '—' }} {{ t.currency || 'EGP' }}</div>
+        <div class="actions">
+          <button class="btn btn-sm" (click)="goToSubscribe(t)"><i class="fas fa-user-plus"></i> Subscribe</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <app-footer></app-footer>
+</div>

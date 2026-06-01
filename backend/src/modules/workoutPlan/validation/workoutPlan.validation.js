@@ -1,7 +1,50 @@
 const Joi = require('joi');
 
+// ── Goal normalization mapping ─────────────────────────────────────────────
+const GOAL_ALIASES = {
+  'weight_loss': 'weightLoss',
+  'weightloss': 'weightLoss',
+  'lose_weight': 'weightLoss',
+  'loseweight': 'weightLoss',
+  'muscle_gain': 'muscleGain',
+  'musclegain': 'muscleGain',
+  'build_muscle': 'muscleGain',
+  'buildmuscle': 'muscleGain',
+  'muscle_building': 'muscleGain',
+  'general_fitness': 'generalFitness',
+  'generalfitness': 'generalFitness',
+  'sport_performance': 'sportPerformance',
+  'sportperformance': 'sportPerformance',
+  'athletic': 'sportPerformance',
+  'rehab': 'rehabilitation',
+  'recovery': 'rehabilitation',
+};
+
+const normalizeGoal = (value) => {
+  if (!value) return value;
+  const key = value.toLowerCase().replace(/[-_\s]/g, '_');
+  return GOAL_ALIASES[key] || value;
+};
+
+const validGoals = ['weightLoss', 'muscleGain', 'endurance', 'flexibility', 'generalFitness', 'rehabilitation', 'sportPerformance'];
+const allGoalVariations = [
+  ...validGoals,
+  'weight_loss', 'weightloss', 'lose_weight', 'loseweight', 'weight loss',
+  'muscle_gain', 'musclegain', 'build_muscle', 'buildmuscle', 'muscle building', 'muscle gain',
+  'general_fitness', 'generalfitness', 'general fitness',
+  'sport_performance', 'sportperformance', 'sport performance', 'athletic',
+  'rehab', 'recovery',
+  'endurance',
+  'flexibility',
+];
+
 const generatePlanSchema = Joi.object({
-  goal:  Joi.string().valid('weight_loss', 'muscle_gain', 'fitness').required(),
+  goal: Joi.string()
+    .valid(...allGoalVariations)
+    .required()
+    .messages({
+      'any.only': 'goal must be one of [weightLoss, muscleGain, endurance, flexibility, generalFitness, rehabilitation, sportPerformance]',
+    }),
   level: Joi.string().valid('beginner', 'intermediate', 'advanced').required(),
 });
 
@@ -26,4 +69,4 @@ const updatePlanSchema = Joi.object({
   isActive:      Joi.boolean(),
 });
 
-module.exports = { generatePlanSchema, updatePlanSchema };
+module.exports = { generatePlanSchema, updatePlanSchema, normalizeGoal };

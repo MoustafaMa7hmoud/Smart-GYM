@@ -6,6 +6,7 @@ const router = require('express').Router();
 
 router.use('/auth',          require('../modules/auth/routes/auth.routes'));
 router.use('/users',         require('../modules/user/routes/user.routes'));
+router.use('/admin/users',   require('../modules/user/routes/user.routes'));
 router.use('/trainers',      require('../modules/trainer/routes/trainer.routes'));
 router.use('/exercises',     require('../modules/exercise/routes/exercise.routes'));
 router.use('/machines',      require('../modules/machine/routes/machine.routes'));

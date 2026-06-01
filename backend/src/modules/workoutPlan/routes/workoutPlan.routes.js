@@ -6,6 +6,7 @@ const { generatePlanSchema, updatePlanSchema } = require('../validation/workoutP
 
 router.use(protect);
 
+router.post('/',         validate(generatePlanSchema), ctrl.generatePlan);
 router.post('/generate', validate(generatePlanSchema), ctrl.generatePlan);
 router.get('/',          ctrl.getMyPlans);
 router.get('/:id',       ctrl.getPlanById);

@@ -1,7 +1,8 @@
 const Exercise           = require('../model/exercise.model');
+const Trainer            = require('../../trainer/model/trainer.model');
 const ApiFeatures        = require('../../../utils/apiFeatures');
 const cloudinaryService  = require('../../../integrations/cloudinary.service');
-const { CLOUDINARY_FOLDERS } = require('../../../utils/constants');
+const { CLOUDINARY_FOLDERS, ROLES } = require('../../../utils/constants');
 const ApiError           = require('../../../utils/ApiError');
 const logger             = require('../../../utils/logger');
 
@@ -19,9 +20,39 @@ const createExercise = async (data, files) => {
   return exercise;
 };
 
+// Verify that user owns the exercise or is an admin
+const verifyExerciseOwnership = async (exerciseId, userId, userRole) => {
+  const exercise = await Exercise.findById(exerciseId);
+  if (!exercise) throw new ApiError(404, 'Exercise not found.');
+
+  // Admins can update any exercise
+  if (userRole === ROLES.ADMIN) return exercise;
+
+  // For trainers, verify they own the exercise
+  if (userRole === ROLES.TRAINER) {
+    const trainer = await Trainer.findOne({ user: userId });
+    if (!trainer) throw new ApiError(403, 'Trainer profile not found.');
+    
+    // Check if exercise belongs to this trainer
+    if (String(exercise.trainerId) !== String(trainer._id)) {
+      throw new ApiError(403, 'You can only update exercises you created.');
+    }
+  }
+
+  return exercise;
+};
+
 const getAllExercises = async (queryString) => {
+  // Build initial query - always filter by isActive: true
+  let baseQuery = Exercise.find({ isActive: true });
+  
+  // If trainerId is provided in query, also filter by trainerId
+  if (queryString.trainerId) {
+    baseQuery = Exercise.find({ isActive: true, trainerId: queryString.trainerId });
+  }
+  
   const features = new ApiFeatures(
-    Exercise.find({ isActive: true }).populate('machine', 'name targetMuscles'),
+    baseQuery.populate('machine', 'name targetMuscles'),
     queryString
   )
     .filter()
@@ -82,6 +113,7 @@ const deleteExercise = async (id) => {
 
 module.exports = {
   createExercise,
+  verifyExerciseOwnership,
   getAllExercises,
   getExerciseById,
   updateExercise,

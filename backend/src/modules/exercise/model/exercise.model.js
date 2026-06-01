@@ -16,6 +16,7 @@ const exerciseSchema = new mongoose.Schema(
       trim: true,
       maxlength: [50, 'Muscle name cannot exceed 50 characters'],
     },
+    trainerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Trainer', default: null },
     machine: { type: mongoose.Schema.Types.ObjectId, ref: 'Machine', default: null },
     video: { type: String, default: null },
     videoPublicId: { type: String, default: null, select: false },
@@ -56,6 +57,7 @@ const exerciseSchema = new mongoose.Schema(
 );
 
 exerciseSchema.index({ muscle: 1, level: 1 });
+exerciseSchema.index({ trainerId: 1 });
 exerciseSchema.index({ category: 1, isActive: 1 });
 exerciseSchema.index({ name: 'text', description: 'text', muscle: 'text' });
 

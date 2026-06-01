@@ -1,10 +1,13 @@
 const workoutPlanService = require('../service/workoutPlan.service');
+const { normalizeGoal }  = require('../validation/workoutPlan.validation');
 const catchAsync         = require('../../../utils/catchAsync');
 const ApiResponse        = require('../../../utils/ApiResponse');
 const { HTTP }           = require('../../../utils/constants');
 
 const generatePlan = catchAsync(async (req, res) => {
-  const plan = await workoutPlanService.generatePlan(req.user._id, req.body);
+  const { goal, level } = req.body;
+  const normalizedGoal = normalizeGoal(goal);
+  const plan = await workoutPlanService.generatePlan(req.user._id, { goal: normalizedGoal, level });
   res.status(HTTP.CREATED).json(new ApiResponse(HTTP.CREATED, plan, 'Workout plan generated.'));
 });
 

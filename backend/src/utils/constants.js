@@ -83,10 +83,10 @@ const SUBSCRIPTION_STATUSES = Object.freeze({
 
 // ── Payment ───────────────────────────────────────────────────────────────────
 const PAYMENT_STATUSES = Object.freeze({
-  PENDING:  'pending',
-  SUCCESS:  'success',
-  FAILED:   'failed',
-  REFUNDED: 'refunded',
+  PENDING:   'pending',
+  COMPLETED: 'completed',
+  FAILED:    'failed',
+  REFUNDED:  'refunded',
 });
 
 // ── Token types ───────────────────────────────────────────────────────────────

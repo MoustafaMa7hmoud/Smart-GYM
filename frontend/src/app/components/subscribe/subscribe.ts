@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -12,7 +12,7 @@ import { Footer } from '../footer/footer';
   imports: [CommonModule, FormsModule, RouterLink, Navbar, Footer],
   templateUrl: './subscribe.html', styleUrls: ['./subscribe.css']
 })
-export class Subscribe implements OnInit {
+export class Subscribe implements OnInit, OnDestroy {
   auth   = inject(AuthService);
   subApi = inject(SubscriptionApiService);
   payApi = inject(PaymentApiService);
@@ -25,6 +25,10 @@ export class Subscribe implements OnInit {
   error = '';
   iframeUrl = '';
   createdSub: any = null;
+  createdPaymentId: string | null = null;
+  paymentWindow: Window | null = null;
+  private pollingHandle: number | null = null;
+  private readonly pollingIntervalMs = 4000;
 
   // ── الـ plans هنا hardcoded بـ id = الـ string اللي الباك بيتوقعه ──────
   plans = [
@@ -73,6 +77,9 @@ export class Subscribe implements OnInit {
     this.loading = true;
     this.error = '';
 
+    // Open the payment window immediately to avoid popup blockers.
+    this.paymentWindow = window.open('about:blank', '_blank');
+
     // ✅ الباك بيتوقع بس: { plan: 'basic'|'standard'|'premium', durationMonths: number }
     // الـ startDate و endDate بيحسبهم الـ service تلقائياً — مش محتاجهم نبعتهم
     this.subApi.create({
@@ -81,45 +88,159 @@ export class Subscribe implements OnInit {
     }).subscribe({
       next: (res) => {
         this.createdSub = res.data;
-        // بعد ما الـ subscription اتعملت → ابدأ الدفع
-        this.payApi.initiate(res.data._id).subscribe({
+        const user = this.auth.currentUser as any;
+        const extras = { userFullName: user?.fullName, userPhone: user?.phone };
+
+        this.payApi.initiate(res.data._id, extras).subscribe({
           next: (payRes) => {
             this.loading = false;
-            // الـ backend بيرجع iframeUrl جوه data مباشرة أو جوه data.payment
+            console.log('Payment initiation response:', JSON.stringify(payRes, null, 2));
             this.iframeUrl = payRes.data?.iframeUrl
                           || payRes.data?.payment?.iframeUrl
+                          || payRes.data?.data?.iframe_url
+                          || payRes.data?.data?.payment?.iframeUrl
                           || '';
+            // Backend returns: { iframeUrl, paymentId, paymobOrderId, amountEGP }
+            this.createdPaymentId = payRes.data?.paymentId
+                                 || payRes.data?.payment?._id
+                                 || payRes.data?.payment?.id
+                                 || payRes.data?._id
+                                 || null;
+
             if (this.iframeUrl) {
               this.step = 'paying';
-              window.open(this.iframeUrl, '_blank');
+              this.startPaymentPolling();
+              if (this.paymentWindow && !this.paymentWindow.closed) {
+                this.paymentWindow.location.href = this.iframeUrl;
+              } else {
+                window.open(this.iframeUrl, '_blank');
+              }
             } else {
               this.error = 'Could not get payment URL. Please try again.';
+              if (this.paymentWindow && !this.paymentWindow.closed) {
+                this.paymentWindow.close();
+              }
+              this.paymentWindow = null;
             }
           },
           error: (err) => {
             this.loading = false;
-            this.error = err?.error?.message || 'Payment initiation failed. Please try again.';
+            console.error('Payment initiation error:', err);
+            const backendMsg = err?.error?.message || err?.error || null;
+            this.error = backendMsg ? `Payment initiation failed: ${backendMsg}` : 'Payment initiation failed (server error). Please try again or contact support.';
+            if (this.paymentWindow && !this.paymentWindow.closed) {
+              this.paymentWindow.close();
+            }
+            this.paymentWindow = null;
           }
         });
       },
       error: (err) => {
         this.loading = false;
         this.error = err?.error?.message || 'Could not create subscription. Please try again.';
+        if (this.paymentWindow && !this.paymentWindow.closed) {
+          this.paymentWindow.close();
+        }
+        this.paymentWindow = null;
       }
     });
   }
 
-  checkPaymentStatus() {
+  ngOnDestroy() {
+    this.stopPaymentPolling();
+  }
+
+  startPaymentPolling() {
+    this.stopPaymentPolling();
+    if (!this.createdSub?._id) { return; }
+    this.checkPaymentStatus(true);
+    this.pollingHandle = window.setInterval(() => {
+      this.checkPaymentStatus(true);
+    }, this.pollingIntervalMs);
+  }
+
+  stopPaymentPolling() {
+    if (this.pollingHandle != null) {
+      clearInterval(this.pollingHandle);
+      this.pollingHandle = null;
+    }
+  }
+
+  cancelPayment() {
+    this.step = 'confirm';
+    this.error = '';
+    this.stopPaymentPolling();
+    if (this.paymentWindow && !this.paymentWindow.closed) {
+      this.paymentWindow.close();
+    }
+    this.paymentWindow = null;
+  }
+
+  checkPaymentStatus(auto = false) {
     if (!this.createdSub?._id) return;
-    this.subApi.getById(this.createdSub._id).subscribe({
-      next: (res) => {
-        if (res.data?.status === 'active') {
+
+    // ── Poll /payments/my and find our payment by paymobOrderId or _id ──
+    // This avoids the 403 from getById ownership check issues
+    this.payApi.getMy(true).subscribe({
+      next: (payments: any) => {
+        // payments is an array from getMy (uses extractItems pipe)
+        const arr: any[] = Array.isArray(payments) ? payments : (payments?.data ?? []);
+        console.log('[Polling] payments/my response count:', arr.length,
+          'createdPaymentId:', this.createdPaymentId,
+          'createdSub._id:', this.createdSub?._id);
+        if (arr.length > 0) {
+          console.log('[Polling] first payment sample:', JSON.stringify({
+            _id: arr[0]._id,
+            status: arr[0].status,
+            subscription: arr[0].subscription
+          }));
+        }
+        // Find the payment matching our subscription
+        const myPayment = arr.find((p: any) => {
+          // subscription may be a populated object {_id, plan,...} or a raw ObjectId string
+          const subId = p.subscription?._id ?? p.subscription;
+          const matchBySub = String(subId) === String(this.createdSub?._id);
+          const matchById  = String(p._id) === String(this.createdPaymentId);
+          console.log('[Polling] payment', p._id, 'status:', p.status, 'subId:', String(subId), 'matchBySub:', matchBySub, 'matchById:', matchById);
+          return matchBySub || matchById;
+        });
+        console.log('[Polling] myPayment found:', myPayment ? myPayment._id + ' status=' + myPayment.status : 'NOT FOUND');
+        if (myPayment?.status === 'completed') {
+          this.stopPaymentPolling();
           this.step = 'success';
-        } else {
-          this.error = 'Payment not confirmed yet. Please complete the payment in the opened window, then click "I\'ve Paid" again.';
+          return;
+        }
+        // Also check subscription status as fallback
+        this._checkSubscriptionStatus(auto);
+      },
+      error: () => {
+        this._checkSubscriptionStatus(auto);
+      }
+    });
+  }
+
+  private _checkSubscriptionStatus(auto = false) {
+    // After webhook fires, the subscription status becomes 'active'
+    this.subApi.getMy(true).subscribe({
+      next: (res) => {
+        console.log('[Polling] subscriptions/my raw response:', JSON.stringify(res));
+        const status = res.data?.status;
+        const isPaid = status === 'active'
+                    || status === 'success'
+                    || status === 'paid'
+                    || status === 'completed';
+        if (isPaid) {
+          this.stopPaymentPolling();
+          this.step = 'success';
+        } else if (!auto) {
+          this.error = 'Payment not confirmed yet. Please complete the payment in the opened window, then click \"I\'ve Paid\" again.';
         }
       },
-      error: () => { this.error = 'Could not verify payment status. Please try again.'; }
+      error: () => {
+        if (!auto) {
+          this.error = 'Could not verify payment status. Please try again.';
+        }
+      }
     });
   }
 
